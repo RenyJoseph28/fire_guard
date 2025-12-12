@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - FireGuard</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: "hsl(10, 15%, 5%)",
+                        foreground: "hsl(30, 10%, 95%)",
+                        card: "hsl(10, 10%, 8%)",
+                        primary: "hsl(25, 95%, 55%)",
+                        "primary-foreground": "hsl(10, 15%, 5%)",
+                        muted: "hsl(10, 10%, 15%)",
+                        "muted-foreground": "hsl(30, 10%, 65%)",
+                        border: "hsl(15, 30%, 20%)",
+                        input: "hsl(15, 30%, 20%)",
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        display: ["Orbitron", "sans-serif"],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: hsl(10, 15%, 5%);
+            color: hsl(30, 10%, 95%);
+        }
+
+        .glass-modal {
+            background-color: hsla(10, 10%, 8%, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid hsla(15, 30%, 20%, 0.5);
+            box-shadow: 0 0 40px hsla(25, 95%, 55%, 0.1);
+        }
+
+        .input-field {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .input-field:focus-within {
+            border-color: hsl(25, 95%, 55%);
+            box-shadow: 0 0 0 1px hsl(25, 95%, 55%);
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen flex items-center justify-center p-4 bg-[url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center">
+    <!-- Overlay -->
+    <div class="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
+
+    <!-- Sign In Modal -->
+    <div class="relative w-full max-w-md p-8 rounded-2xl glass-modal animate-fade-in-up">
+        <!-- Close Button -->
+        <a href="/" class="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
+            <i data-lucide="x" class="w-5 h-5"></i>
+        </a>
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div
+                class="inline-flex items-center justify-center w-12 h-12 mb-4 rounded-xl bg-gradient-to-br from-primary/20 to-transparent border border-primary/20">
+                <i data-lucide="flame" class="w-6 h-6 text-primary"></i>
+            </div>
+            <h1 class="font-display text-2xl font-bold mb-2">Welcome Back</h1>
+            <p class="text-muted-foreground text-sm">Sign in to access your fire detection dashboard</p>
+        </div>
+
+        <!-- Form -->
+        <form class="space-y-4">
+            <!-- Email -->
+            <div class="space-y-2">
+                <div class="relative group input-field border rounded-lg transition-all duration-300">
+                    <div
+                        class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                        <i data-lucide="mail" class="w-5 h-5"></i>
+                    </div>
+                    <input type="email" placeholder="Email Address"
+                        class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground/70"
+                        required>
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="space-y-2">
+                <div class="relative group input-field border rounded-lg transition-all duration-300">
+                    <div
+                        class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </div>
+                    <input type="password" id="password" placeholder="Password"
+                        class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground/70"
+                        required>
+                    <button type="button" onclick="togglePassword()"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                        <i data-lucide="eye" id="eye-icon" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Forgot Password -->
+            <div class="flex justify-end">
+                <a href="#" class="text-sm text-primary hover:text-primary/80 transition-colors">Forgot password?</a>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit"
+                class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)] transform hover:scale-[1.02]">
+                Sign In
+            </button>
+        </form>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center text-sm text-muted-foreground">
+            Don't have an account?
+            <a href="/signup/" class="text-primary hover:text-primary/80 font-medium transition-colors">Sign Up</a>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+
+</html>

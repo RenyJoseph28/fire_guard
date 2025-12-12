@@ -1,0 +1,19 @@
+# Excluding the virtual environment from pushing into git.
+myenv/
+
+__pycache__/
+# Ignore all files in the migrations folder
+**/migrations/*
+
+# Except for __init__.py, which should be included
+!**/migrations/__init__.py
+
+# Ignore all files within events folder
+**/media/events/*
+**/media/gallery/*
+#Ignore all files in the log folder
+**/logs/*
+
+
+#Ignore all files in the error_log folder
+error_logs/
