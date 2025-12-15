@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In - FireGuard</title>
+    <title>Sign In - FSMD</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,12 +75,25 @@
     <!-- Overlay -->
     <div class="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
 
+    
+
     <!-- Sign In Modal -->
     <div class="relative w-full max-w-md p-8 rounded-2xl glass-modal animate-fade-in-up">
         <!-- Close Button -->
         <a href="/" class="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
             <i data-lucide="x" class="w-5 h-5"></i>
         </a>
+
+         {% if messages %}
+                <div class="messages-container">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        <i data-lucide="{% if message.tags == 'error' %}alert-circle{% elif message.tags == 'success' %}check-circle{% else %}info{% endif %}" class="alert-icon"></i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
 
         <!-- Header -->
         <div class="text-center mb-8">
@@ -93,7 +106,9 @@
         </div>
 
         <!-- Form -->
-        <form class="space-y-4">
+        <form method="POST" action="{% url 'signin' %}" class="space-y-4">
+        {% csrf_token %}
+
             <!-- Email -->
             <div class="space-y-2">
                 <div class="relative group input-field border rounded-lg transition-all duration-300">
@@ -101,7 +116,7 @@
                         class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
                         <i data-lucide="mail" class="w-5 h-5"></i>
                     </div>
-                    <input type="email" placeholder="Email Address"
+                    <input type="email" name="email" placeholder="Email Address"
                         class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground/70"
                         required>
                 </div>
@@ -114,7 +129,7 @@
                         class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
                         <i data-lucide="lock" class="w-5 h-5"></i>
                     </div>
-                    <input type="password" id="password" placeholder="Password"
+                    <input type="password" name="password" id="password" placeholder="Password"
                         class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground/70"
                         required>
                     <button type="button" onclick="togglePassword()"
@@ -139,7 +154,7 @@
         <!-- Footer -->
         <div class="mt-8 text-center text-sm text-muted-foreground">
             Don't have an account?
-            <a href="/signup/" class="text-primary hover:text-primary/80 font-medium transition-colors">Sign Up</a>
+            <a href="{% url 'signup' %}" class="text-primary hover:text-primary/80 font-medium transition-colors">Sign Up</a>
         </div>
     </div>
 

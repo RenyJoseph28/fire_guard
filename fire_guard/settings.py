@@ -79,8 +79,12 @@ WSGI_APPLICATION = "fire_guard.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "fire_guard",      # your database name
+        "USER": "postgres",          # your postgres username
+        "PASSWORD": "123", # your postgres password
+        "HOST": "localhost",         # or IP / domain
+        "PORT": "5432",              # default PostgreSQL port
     }
 }
 
