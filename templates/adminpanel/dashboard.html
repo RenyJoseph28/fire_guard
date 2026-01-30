@@ -1,0 +1,231 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Fire Guard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#be123c',
+                            900: '#881337',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gray-50 font-sans">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-900 text-white flex-shrink-0 hidden md:flex flex-col">
+            <div class="p-6 border-b border-gray-800">
+                <span
+                    class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-orange-500">
+                    FireGuard
+                </span>
+                <span class="text-xs block text-gray-500 mt-1">ADMIN CONSOLE</span>
+            </div>
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1 px-3">
+                    <li>
+                        <a href="#"
+                            class="flex items-center gap-3 px-4 py-3 bg-brand-600 text-white rounded-lg shadow-sm transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            </svg>
+                            Dashboard
+                        </a>
+                    </li>
+                    <!-- <li>
+                        <a href="#"
+                            class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            Users
+                        </a>
+                    </li> -->
+                    <!-- <li>
+                        <a href="#"
+                            class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Reports
+                        </a>
+                    </li> -->
+                </ul>
+            </nav>
+            <div class="p-4 border-t border-gray-800">
+                <a href="{% url 'public_home' %}"
+                    class="flex items-center gap-3 px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white shadow-sm h-16 flex items-center justify-between px-6 z-10">
+                <h2 class="text-xl font-semibold text-gray-800">Overview</h2>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-gray-600">Welcome, {{ user.username }}</span>
+                    <div
+                        class="h-8 w-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold border border-brand-200">
+                        {{ user.username|make_list|first|upper }}
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 text-sm font-medium">Total Users</h3>
+                            <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <span class="text-2xl font-bold text-gray-800">1,234</span>
+                        <span class="text-xs text-green-500 font-medium ml-2">↑ 12% from last month</span>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 text-sm font-medium">Active Alerts</h3>
+                            <div class="p-2 bg-red-50 text-red-600 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <span class="text-2xl font-bold text-gray-800">23</span>
+                        <span class="text-xs text-red-500 font-medium ml-2">Requires attention</span>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 text-sm font-medium">System Status</h3>
+                            <div class="p-2 bg-green-50 text-green-600 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <span class="text-2xl font-bold text-gray-800">Operational</span>
+                        <span class="text-xs text-green-500 font-medium ml-2">All systems normal</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="mb-8 flex justify-end">
+                    <a href="{% url 'adminpanel:upload_video' %}"
+                        class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg shadow transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Upload Video for Analysis
+                    </a>
+                </div>
+
+                <!-- Recent Activity / Alerts -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Detections</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-gray-500 text-sm border-b border-gray-100">
+                                    <th class="pb-3 font-medium">Type</th>
+                                    <th class="pb-3 font-medium">Severity</th>
+                                    <th class="pb-3 font-medium">Confidence</th>
+                                    <th class="pb-3 font-medium">Time</th>
+                                    <th class="pb-3 font-medium">Snapshot</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-50">
+                                {% for alert in recent_alerts %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="py-3 items-center gap-2">
+                                        <span class="capitalize font-medium text-gray-700">{{ alert.alert_type }}</span>
+                                    </td>
+                                    <td class="py-3">
+                                        {% if alert.severity == 'high' %}
+                                        <span
+                                            class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-600 font-semibold">High</span>
+                                        {% elif alert.severity == 'medium' %}
+                                        <span
+                                            class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-600 font-semibold">Medium</span>
+                                        {% else %}
+                                        <span
+                                            class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 font-semibold">Low</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3 text-sm text-gray-600">{{ alert.confidence|floatformat:2 }}</td>
+                                    <td class="py-3 text-sm text-gray-500">{{ alert.timestamp|timesince }} ago</td>
+                                    <td class="py-3">
+                                        {% if alert.snapshot %}
+                                        <a href="{{ alert.snapshot.url }}" target="_blank"
+                                            class="text-blue-500 hover:underline text-xs">View Image</a>
+                                        {% else %}
+                                        <span class="text-gray-400 text-xs">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="py-4 text-center text-gray-400 text-sm">No detection alerts
+                                        yet. Upload a video to start analysis.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+
+</html>
