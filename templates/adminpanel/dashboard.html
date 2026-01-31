@@ -95,6 +95,17 @@
 
         <!-- Main Content -->
         <div class="flex-1 flex flex-col overflow-hidden">
+
+            {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                <div
+                    class="p-3 rounded-lg text-sm font-medium {% if message.tags == 'error' %}bg-red-50 text-red-600 border border-red-100{% else %}bg-green-50 text-green-600 border border-green-100{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             <!-- Header -->
             <header class="bg-white shadow-sm h-16 flex items-center justify-between px-6 z-10">
                 <h2 class="text-xl font-semibold text-gray-800">Overview</h2>
@@ -191,7 +202,10 @@
                                         <span class="capitalize font-medium text-gray-700">{{ alert.alert_type }}</span>
                                     </td>
                                     <td class="py-3">
-                                        {% if alert.severity == 'high' %}
+                                        {% if alert.severity == 'critical' %}
+                                        <span
+                                            class="px-2 py-1 text-xs rounded-full bg-red-600 text-white font-bold animate-pulse">CRITICAL</span>
+                                        {% elif alert.severity == 'high' %}
                                         <span
                                             class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-600 font-semibold">High</span>
                                         {% elif alert.severity == 'medium' %}
@@ -226,6 +240,60 @@
             </main>
         </div>
     </div>
+
+    <!-- Alarm Sound -->
+    <audio id="alarm-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"
+        loop></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Check if there are any RECENT critical or high alerts
+            // We'll only trigger alarm if alerts were just added (page loaded after upload)
+            const urlParams = new URLSearchParams(window.location.search);
+            const justUploaded = urlParams.get('uploaded') === 'true';
+
+            // Also check for any high/critical alerts in the table
+            const hasCritical = document.querySelector('.bg-red-600');
+            const hasHigh = document.querySelector('.bg-red-100');
+
+            // Only trigger alarm if we just uploaded AND there are alerts
+            if (justUploaded && (hasCritical || hasHigh)) {
+                const audio = document.getElementById('alarm-sound');
+                audio.volume = 0.5;
+
+                const playPromise = audio.play();
+
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        console.log("🔊 Alarm playing!");
+                    }).catch(error => {
+                        console.log("Audio blocked - showing enable button");
+                        const btn = document.createElement("button");
+                        btn.innerHTML = "🔊 CLICK TO ENABLE ALARM";
+                        btn.className = "fixed top-20 right-4 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-lg z-50 cursor-pointer animate-pulse";
+                        btn.onclick = () => {
+                            audio.play();
+                            btn.remove();
+                        };
+                        document.body.appendChild(btn);
+                    });
+                }
+
+                if (hasCritical) {
+                    setTimeout(() => {
+                        alert("⚠️ CRITICAL WARNING: Class B Fire Hazard Detected!");
+                    }, 500);
+                } else if (hasHigh) {
+                    setTimeout(() => {
+                        alert("🔥 WARNING: Fire/Smoke Detected!");
+                    }, 500);
+                }
+
+                // Clean up URL so alarm doesn't trigger on refresh
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        });
+    </script>
 </body>
 
 </html>

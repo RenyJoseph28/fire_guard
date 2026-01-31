@@ -8,32 +8,227 @@ import io
 from PIL import Image
 import numpy as np
 
+def detect_gas_cylinder_context(frame, fire_box, frame_width, frame_height):
+    """
+    Detect gas cylinder based on red cylindrical object below fire
+    (From enhanced_fire_analysis.py)
+    """
+    x1, y1, x2, y2 = fire_box
+    
+    # Define search region - WIDER area, focus below fire
+    search_x1 = max(0, x1 - 80)
+    search_x2 = min(frame_width, x2 + 80)
+    search_y1 = max(0, y2 - 50)
+    search_y2 = min(frame_height, y2 + 250)
+    
+    roi = frame[search_y1:search_y2, search_x1:search_x2]
+    if roi.size == 0:
+        return False
+    
+    # Color analysis - VERY LENIENT for red/maroon/orange
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    
+    # RELAXED red detection - catches orange-red to dark red
+    lower_red1 = np.array([0, 50, 40])
+    upper_red1 = np.array([15, 255, 255])
+    lower_red2 = np.array([165, 50, 40])
+    upper_red2 = np.array([180, 255, 255])
+    
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    mask = mask1 + mask2
+    
+    # Noise filtering
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    
+    # Shape analysis
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > 500:
+            x, y, w, h = cv2.boundingRect(cnt)
+            aspect_ratio = float(w) / (h + 1e-6)
+            
+            # 0.2 = very tall, 1.5 = wider than tall
+            if 0.2 < aspect_ratio < 1.5:
+                if w > 20 and h > 30:
+                    return True
+    return False
+
+def is_valid_fire_smoke(frame, xyxy, label, conf, width, height, has_fire_in_frame=False):
+    """
+    Apply Smart Filter to distinguish Fire vs Sunlight and Smoke vs Fog/Clouds
+    
+    Args:
+        has_fire_in_frame: If True, skip blue sky rejection for smoke (real fire can have smoke against sky)
+    """
+    x1, y1, x2, y2 = xyxy
+    # Clamp coordinates
+    x1, y1 = max(0, x1), max(0, y1)
+    x2, y2 = min(width-1, x2), min(height-1, y2)
+    
+    roi = frame[y1:y2, x1:x2]
+    if roi.size == 0: return False
+    
+    label_lower = label.lower()
+    
+    # 1. Fire vs Sunlight Filter
+    if 'fire' in label_lower:
+        avg_color = cv2.mean(roi)[:3] # BGR
+        b, g, r_val = avg_color
+        r_val = max(r_val, 1.0)
+        
+        rb_ratio = r_val / (max(b, 1.0))
+        rg_ratio = r_val / (max(g, 1.0))
+        max_val = max(r_val, g, b)
+        
+        # Texture check for Fire (Fire is turbulent)
+        (mean, std_dev) = cv2.meanStdDev(roi)
+        texture_score = np.mean(std_dev)
+        
+        sunlight_score = 0.0
+        
+        # Sunlight is balanced (White) or Yellow (R~G) and often smooth
+        if rb_ratio < 1.5 and rg_ratio < 1.3:
+            sunlight_score += 0.4
+            if max_val > 220: sunlight_score += 0.4 # Bright white
+            if texture_score < 20: sunlight_score += 0.3 # Smooth
+        
+        # Capping
+        sunlight_score = min(sunlight_score, 1.0)
+        
+        # Dynamic Threshold: Require higher confidence if it looks like sunlight
+        dynamic_thresh = 0.15 + (sunlight_score * 0.5)
+        if conf < dynamic_thresh:
+            return False
+
+    # 2. Smoke vs Fog / Cloud Filter
+    elif 'smoke' in label_lower or 'default' in label_lower:
+        (mean, std_dev) = cv2.meanStdDev(roi)
+        texture_score = np.mean(std_dev)
+        avg_val = np.mean(mean) # Brightness
+        
+        # CRITICAL FIX: Dark smoke (like from house fires) should ALWAYS pass!
+        if avg_val < 90:
+            print(f"DEBUG: Dark smoke detected (brightness {avg_val:.0f}) - ALLOWING")
+            return True
+        
+        # Check for BLUE SKY anywhere in frame
+        b_val, g_val, r_val = cv2.mean(roi)[:3]
+        
+        sky_height = min(150, height // 4)
+        sky_region = frame[0:sky_height, :]
+        
+        is_blue_sky = False
+        if sky_region.size > 0:
+            sky_b, sky_g, sky_r = cv2.mean(sky_region)[:3]
+            if sky_b > 100 and sky_b > sky_r * 1.2:
+                is_blue_sky = True
+                print(f"DEBUG: Blue sky detected in frame (B={sky_b:.0f}, R={sky_r:.0f})")
+        
+        # KEY FIX: Only reject as clouds if NO FIRE in frame
+        # Real fire CAN have smoke against blue sky (outdoor fires, building fires)
+        if is_blue_sky and avg_val >= 100 and not has_fire_in_frame:
+            print(f"DEBUG: Rejected as CLOUDS (brightness {avg_val:.0f} + blue sky + no fire)")
+            return False
+        elif is_blue_sky and avg_val >= 100 and has_fire_in_frame:
+            print(f"DEBUG: Blue sky + smoke BUT fire is present - ALLOWING smoke")
+            # Continue to fog score check, don't reject outright
+
+        fog_score = 0.0
+        
+        # A. Uniformity Check: Fog/clouds are very smooth
+        if texture_score < 15: 
+            fog_score += 0.5
+        elif texture_score < 25:
+            fog_score += 0.3
+            
+        # B. Brightness Check: Fog/clouds are bright white/grey
+        if avg_val > 180:
+            fog_score += 0.4
+        elif avg_val > 150:
+            fog_score += 0.2
+            
+        # C. Size/Shape Check: Fog/clouds often cover large area
+        box_w = x2 - x1
+        if box_w > width * 0.5:
+            fog_score += 0.3
+        
+        # D. Saturation Check: Fog/clouds are very unsaturated (grey/white)
+        saturation = max(b_val, g_val, r_val) - min(b_val, g_val, r_val)
+        if saturation < 20: 
+            fog_score += 0.3
+        
+        # E. Blue sky nearby adds penalty
+        if is_blue_sky:
+            fog_score += 0.4
+
+        # Max penalty
+        fog_score = min(fog_score, 1.0)
+        
+        # Dynamic Threshold: VERY AGGRESSIVE for fog-like detections
+        # If fog_score = 1.0, need confidence > 0.90 to pass
+        dynamic_thresh = 0.15 + (fog_score * 0.75) 
+        
+        if conf < dynamic_thresh:
+            print(f"DEBUG: Rejected Fog candidate '{label}' (Conf {conf:.2f} < Thresh {dynamic_thresh:.2f}, Score {fog_score:.2f})")
+            return False
+            
+    return True
+
 class FireDetector:
-    _model = None
+    _fire_model = None
+    _material_model = None
 
     @classmethod
-    def get_model(cls):
-        if cls._model is None:
-            # Path to your custom trained model
-            # Ensure you put your best.pt file in the root fire_guard directory
-            model_path = os.path.join(settings.BASE_DIR, 'best.pt') 
-            if os.path.exists(model_path):
-                cls._model = YOLO(model_path)
-            else:
-                print(f"Warning: Model not found at {model_path}. Using standard yolo11n.pt for demo.")
-                cls._model = YOLO('yolo11n.pt') # Fallback
-        return cls._model
+    def get_fire_model(cls):
+        if cls._fire_model is None:
+            model_path = os.path.join(settings.BASE_DIR, 'best.pt')
+            try:
+                if os.path.exists(model_path):
+                    cls._fire_model = YOLO(model_path)
+                else:
+                    print(f"Warning: Fire model not found at {model_path}. Using standard yolov8n.pt")
+                    cls._fire_model = YOLO('yolov8n.pt')
+            except Exception as e:
+                print(f"ERROR: Failed to load Fire model ({model_path}): {e}")
+                print("Fallback to standard yolov8n.pt")
+                cls._fire_model = YOLO('yolov8n.pt')
+        return cls._fire_model
+
+    @classmethod
+    def get_material_model(cls):
+        if cls._material_model is None:
+            model_path = os.path.join(settings.BASE_DIR, 'best_material.pt')
+            try:
+                if os.path.exists(model_path):
+                    cls._material_model = YOLO(model_path)
+                else:
+                    print(f"Warning: Material model not found at {model_path}. Using standard yolov8n.pt")
+                    cls._material_model = YOLO('yolov8n.pt')
+            except Exception as e:
+                print(f"ERROR: Failed to load Material model ({model_path}): {e}")
+                print("Fallback to standard yolov8n.pt")
+                cls._material_model = YOLO('yolov8n.pt')
+        return cls._material_model
 
     @staticmethod
     def process_video(video_path):
         """
-        Process a video file, detect fire/smoke, and save alerts.
+        Process a video file, detect fire/smoke and burning materials, and save alerts.
         """
-        model = FireDetector.get_model()
+        fire_model = FireDetector.get_fire_model()
+        material_model = FireDetector.get_material_model()
+        
         cap = cv2.VideoCapture(video_path)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
         frame_count = 0
-        skip_frames = 30  # Analyze every 30th frame (1 sec approx) to save resources
+        skip_frames = 30  # Analyze every 30th frame
         alerts_created = 0
 
         while cap.isOpened():
@@ -45,35 +240,222 @@ class FireDetector:
             if frame_count % skip_frames != 0:
                 continue
 
-            # Run inference
-            results = model(frame)
+            # --- Collect all detections for this frame ---
+            frame_detections = []
+            has_cv2_cylinder = False
             
-            for result in results:
-                # Check detections
-                for box in result.boxes:
-                    class_id = int(box.cls[0])
-                    conf = float(box.conf[0])
-                    label = model.names[class_id]
-                    
-                    # Customize these labels based on your trained model
-                    # For standard YOLO (coco), 'fire' isn't a class, but assuming your custom model:
-                    target_classes = ['fire', 'smoke', 'burning']
-                    
-                    # If using standard YOLO, let's just log everything for now
-                    # But for your specific request:
-                    if label.lower() in target_classes or conf > 0.5: 
-                         # (Adjust logic: if strictly your model, check label in target_classes)
-                         
-                         # Save Alert
-                         FireDetector.save_alert(frame, label, conf)
-                         alerts_created += 1
+            # TWO-PASS APPROACH:
+            # Pass 1: Detect FIRE first (so we know if real fire exists in frame)
+            # Pass 2: Process smoke (skip blue sky check if fire was found)
+            
+            has_fire_in_frame = False
+            raw_detections = []
+            
+            # 1. Fire Model - First collect all raw detections
+            if fire_model:
+                results_fire = fire_model(frame, verbose=False)
+                for result in results_fire:
+                    for box in result.boxes:
+                        label = fire_model.names[int(box.cls[0])]
+                        conf = float(box.conf[0])
+                        xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                        
+                        raw_detections.append({
+                            'label': label,
+                            'conf': conf,
+                            'xyxy': xyxy,
+                            'source': 'fire_model'
+                        })
+                        
+                        # Check if this is a fire detection (before filtering)
+                        # 'default' label in this model represents fire/burning
+                        if ('fire' in label.lower() or label.lower() == 'default') and conf > 0.15:
+                            has_fire_in_frame = True
+            
+            # Pass 2: Now filter detections, but with context of fire presence
+            for det in raw_detections:
+                label = det['label']
+                conf = det['conf']
+                xyxy = det['xyxy']
+                
+                # Apply smart filter with fire context
+                if not is_valid_fire_smoke(frame, xyxy, label, conf, width, height, has_fire_in_frame):
+                    continue
+                
+                frame_detections.append({
+                    'label': label,
+                    'conf': conf,
+                    'source': det['source']
+                })
+                
+                # Run CV2 Heuristic for cylinders near fire
+                if 'fire' in label.lower() and conf > 0.15:
+                     if detect_gas_cylinder_context(frame, xyxy, width, height):
+                         has_cv2_cylinder = True
+                         print(f"DEBUG: CV2 Heuristic detected Gas Cylinder near {label}!")
+
+            # 2. Material Model (YOLO) - Detect objects that could be burning materials
+            detected_materials = []
+            if material_model:
+                results_material = material_model(frame, verbose=False)
+                for result in results_material:
+                    for box in result.boxes:
+                        label = material_model.names[int(box.cls[0])]
+                        conf = float(box.conf[0])
+                        
+                        if conf > 0.25:  # Only consider confident detections
+                            detected_materials.append(label.lower())
+                            frame_detections.append({
+                                'label': label,
+                                'conf': conf,
+                                'source': 'material_model'
+                            })
+            
+            # --- Analyze Context ---
+            # Note: 'default' label in this model represents fire/burning material
+            has_fire = any(
+                ('fire' in d['label'].lower() or d['label'].lower() == 'default') 
+                and d['conf'] > 0.15 
+                for d in frame_detections
+            )
+            
+            # Check for cylinder from YOLO OR CV2
+            has_yolo_cylinder = any(('cylinder' in d['label'].lower() or 'gas' in d['label'].lower()) and d['conf'] > 0.15 for d in frame_detections)
+            has_cylinder = has_yolo_cylinder or has_cv2_cylinder
+            
+            # --- MATERIAL-BASED FIRE CLASSIFICATION & EXPLOSION RISK ---
+            fire_class = None
+            fire_class_desc = None
+            explosion_risk = False
+            burning_materials = []
+            
+            # COCO object mapping to fire classes and materials
+            # These mappings help identify what's burning
+            material_mapping = {
+                # Class B - Flammable Liquids (EXPLOSION RISK!)
+                'bottle': ('B', 'Flammable Container', True),
+                'car': ('B', 'Vehicle/Fuel', True),
+                'truck': ('B', 'Vehicle/Fuel', True),
+                'motorcycle': ('B', 'Vehicle/Fuel', True),
+                'bus': ('B', 'Vehicle/Fuel', True),
+                'airplane': ('B', 'Aircraft/Fuel', True),
+                
+                # Class C - Electrical Equipment
+                'laptop': ('C', 'Electronics', False),
+                'tv': ('C', 'Electronics', False),
+                'cell phone': ('C', 'Electronics', False),
+                'microwave': ('C', 'Appliance', False),
+                'toaster': ('C', 'Appliance', False),
+                'refrigerator': ('C', 'Appliance', False),
+                
+                # Class K - Kitchen/Cooking
+                'oven': ('K', 'Cooking Equipment', True),  # Grease fire risk
+                'bowl': ('K', 'Kitchen Item', False),
+                'cup': ('K', 'Kitchen Item', False),
+                'fork': ('K', 'Kitchen Item', False),
+                'knife': ('K', 'Kitchen Item', False),
+                'spoon': ('K', 'Kitchen Item', False),
+                
+                # Class A - Ordinary Combustibles
+                'book': ('A', 'Paper/Books', False),
+                'couch': ('A', 'Furniture', False),
+                'bed': ('A', 'Furniture', False),
+                'chair': ('A', 'Furniture', False),
+                'dining table': ('A', 'Furniture', False),
+                'potted plant': ('A', 'Organic Material', False),
+                'backpack': ('A', 'Fabric/Textile', False),
+                'handbag': ('A', 'Fabric/Textile', False),
+                'suitcase': ('A', 'Fabric/Textile', False),
+                'teddy bear': ('A', 'Fabric/Textile', False),
+            }
+            
+            # Analyze detected materials
+            for mat in detected_materials:
+                if mat in material_mapping:
+                    cls, desc, risk = material_mapping[mat]
+                    burning_materials.append(f"{mat.title()} ({desc})")
+                    if fire_class is None or (cls == 'B' and fire_class != 'B'):
+                        fire_class = cls
+                        fire_class_desc = desc
+                    if risk:
+                        explosion_risk = True
+            
+            # Also check for cylinder (highest explosion risk)
+            if has_cylinder:
+                fire_class = 'B'
+                fire_class_desc = 'Gas Cylinder'
+                explosion_risk = True
+                burning_materials.append("Gas Cylinder (EXTREME DANGER)")
+            
+            # Default if fire detected but no specific material
+            if has_fire and fire_class is None:
+                fire_class = 'A'
+                fire_class_desc = 'General Fire'
+            
+            # Determine logic
+            processed_labels = set()
+            
+            # Log detected materials (if any)
+            if burning_materials and has_fire:
+                materials_str = ", ".join(burning_materials[:3])  # Top 3 materials
+                print(f"DEBUG: Burning materials detected: {materials_str}")
+            
+            # CRITICAL: Explosion Risk Alert
+            if has_fire and explosion_risk:
+                if has_cylinder:
+                    alert_label = "EXPLOSION RISK - Gas/Flammable near Fire"
+                else:
+                    alert_label = f"CLASS {fire_class} - {fire_class_desc}"
+                FireDetector.save_alert(frame, alert_label, 0.99, severity='critical')
+                alerts_created += 1
+                processed_labels.add('explosion_risk')
+                print(f"DEBUG: ⚠️ EXPLOSION RISK DETECTED!")
+            # Other fire classes (no explosion risk)
+            elif has_fire and fire_class:
+                class_label = f"CLASS {fire_class} - {fire_class_desc}"
+                # Class B, C, K are more dangerous
+                sev = 'critical' if fire_class in ['B', 'C', 'K'] else 'high'
+                FireDetector.save_alert(frame, class_label, 0.95, severity=sev)
+                alerts_created += 1
+                processed_labels.add('fire_class')
+            
+            # Log detected materials as separate alerts (for tracking)
+            if burning_materials and has_fire and len(burning_materials) > 0:
+                # Create one consolidated material alert
+                materials_alert = "Materials: " + ", ".join(burning_materials[:3])
+                if len(materials_alert) > 95:  # Truncate if too long
+                    materials_alert = materials_alert[:92] + "..."
+                FireDetector.save_alert(frame, materials_alert, 0.80, severity='medium')
+                alerts_created += 1
+            
+            # Log other (relevant) detections
+            allowed_labels = ['fire', 'smoke', 'cylinder', 'gas', 'burning', 'default', 'flames']
+            
+            for d in frame_detections:
+                label = d['label']
+                conf = d['conf']
+                
+                if conf < 0.15: continue
+                
+                # STRICT FILTER: Only allow relevant fire/safety classes
+                if label.lower() not in allowed_labels:
+                    continue
+                
+                # Filter redundant if we already created a class-specific alert
+                is_handled = 'fire_class' in processed_labels or 'class_b' in processed_labels
+                if 'fire' in label.lower() and is_handled: continue
+                if ('cylinder' in label.lower() or 'gas' in label.lower()) and 'class_b' in processed_labels: continue
+                
+                print(f"DEBUG: Detected {label} with confidence {conf}")
+                FireDetector.save_alert(frame, label, conf)
+                alerts_created += 1
         
         cap.release()
         return alerts_created
 
     @staticmethod
-    def save_alert(frame, label, confidence):
-        # Convert frame to image file for storage
+    def save_alert(frame, label, confidence, severity=None):
+        # Convert frame to image for storage
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(frame_rgb)
         
@@ -81,16 +463,31 @@ class FireDetector:
         pil_img.save(img_io, format='JPEG', quality=70)
         img_content = ContentFile(img_io.getvalue(), name=f"alert_{label}.jpg")
 
-        # Determine severity
-        severity = 'medium'
-        if label.lower() == 'fire':
-            severity = 'high'
-        elif label.lower() == 'smoke':
-            severity = 'low'
+        # Determine severity if not forced
+        if severity is None:
+            severity = 'medium'
+            label_lower = label.lower()
+            
+            # 'default' is often used as class name for fire in custom models
+            if 'fire' in label_lower or 'default' in label_lower:
+                severity = 'high'
+            elif 'class b' in label_lower:
+                severity = 'critical'
+            elif 'cylinder' in label_lower or 'gas' in label_lower:
+                severity = 'critical'
+            elif 'smoke' in label_lower:
+                severity = 'high'  # Changed from 'low' - smoke is also serious!
+            elif 'burning' in label_lower:
+                severity = 'high'
+        
+        # Rename 'default' to something more user-friendly
+        display_label = label
+        if label.lower() == 'default':
+            display_label = 'Fire/Burning Detected'
 
-        # Create DB record
+        # Avoid duplicates: Check if similar alert exists recently (optional logic)
         Alert.objects.create(
-            alert_type=label,
+            alert_type=display_label,
             confidence=confidence,
             severity=severity,
             snapshot=img_content

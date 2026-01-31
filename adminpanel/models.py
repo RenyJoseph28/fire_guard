@@ -6,11 +6,12 @@ class Alert(models.Model):
         ('low', 'Low (Smoke/Fog)'),
         ('medium', 'Medium (Burning Material)'),
         ('high', 'High (Fire)'),
+        ('critical', 'CRITICAL (Class B / Explosion Risk)'),
     ]
 
     timestamp = models.DateTimeField(auto_now_add=True)
     location = models.CharField(max_length=100, default="Camera 1")
-    alert_type = models.CharField(max_length=50)  # e.g., "Fire", "Smoke"
+    alert_type = models.CharField(max_length=100)  # e.g., "Fire", "Class B Fire - Flammable Liquids"
     confidence = models.FloatField()
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='medium')
     is_resolved = models.BooleanField(default=False)

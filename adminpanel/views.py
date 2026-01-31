@@ -54,23 +54,42 @@ def upload_video(request):
     if not request.user.is_authenticated or not request.user.is_superuser:
         return redirect('adminpanel:admin_login')
 
-    if request.method == 'POST' and request.FILES.get('video_file'):
-        video_file = request.FILES['video_file']
-        fs = FileSystemStorage()
-        filename = fs.save(video_file.name, video_file)
-        file_path = fs.path(filename)
+    print(f"DEBUG: upload_video view called. Method: {request.method}")
+    if request.method == 'POST':
+        if request.FILES.get('video_file'):
+            try:
+                video_file = request.FILES['video_file']
+                print(f"DEBUG: Receiving file: {video_file.name}, size: {video_file.size}")
+                
+                fs = FileSystemStorage()
+                filename = fs.save(video_file.name, video_file)
+                file_path = fs.path(filename)
+                print(f"DEBUG: Saved file to: {file_path}")
 
-        # Process the video
-        try:
-            alerts_count = FireDetector.process_video(file_path)
-            messages.success(request, f"Video processed successfully. {alerts_count} potential threats detected.")
-        except Exception as e:
-            messages.error(request, f"Error processing video: {str(e)}")
-        finally:
-            # Clean up uploaded file
-            if os.path.exists(file_path):
-                os.remove(file_path)
+                # Process the video
+                print("DEBUG: Starting processing...")
+                alerts_count = FireDetector.process_video(file_path)
+                print(f"DEBUG: Processing complete. Alerts found: {alerts_count}")
+                
+                messages.success(request, f"Video processed successfully. {alerts_count} potential threats detected.")
+            except Exception as e:
+                import traceback
+                print(f"ERROR in upload_video: {str(e)}")
+                traceback.print_exc()
+                messages.error(request, f"Error processing video: {str(e)}")
+            finally:
+                # Clean up uploaded file
+                if 'file_path' in locals() and os.path.exists(file_path):
+                    os.remove(file_path)
+                    print("DEBUG: Cleaned up uploaded file.")
+        else:
+            print("DEBUG: No 'video_file' in request.FILES")
 
+        # Redirect with parameter to trigger alarm if alerts were found
+        from django.urls import reverse
+        from django.http import HttpResponseRedirect
+        if 'alerts_count' in locals() and alerts_count > 0:
+            return HttpResponseRedirect(reverse('adminpanel:admin_dashboard') + '?uploaded=true')
         return redirect('adminpanel:admin_dashboard')
 
     return render(request, 'adminpanel/upload_video.html')
