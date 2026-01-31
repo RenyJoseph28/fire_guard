@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FireGuard - Real-Time AI Fire Detection System</title>
+  <title>FSMD - Real-Time AI Fire Detection System</title>
   <meta name="description"
     content="Advanced AI-powered fire detection with real-time smoke detection, material classification, severity estimation, and instant mobile alerts. Protect what matters most.">
 
@@ -306,7 +306,7 @@
             <div class="absolute inset-0 w-10 h-10 bg-primary/30 blur-xl rounded-full"></div>
           </div>
           <span class="font-display font-bold text-xl tracking-wider text-foreground">
-            FIRE<span class="text-primary">GUARD</span>
+            FS<span class="text-primary">MD</span>
           </span>
         </a>
 
@@ -346,13 +346,15 @@
           <a href="#contact"
             class="mobile-link text-muted-foreground hover:text-primary transition-colors duration-300 font-medium py-2">Contact</a>
           <div class="flex flex-col gap-3 pt-4 border-t border-border/30">
-            <a href="/signin/" class="btn-outline-fire text-sm py-3 text-center">Sign In</a>
-            <a href="/signup/" class="btn-fire text-sm py-3 text-center">Sign Up</a>
+            <a href="{% url 'signin' %}" class="btn-outline-fire text-sm py-3 text-center">Sign In</a>
+            <a href="{% url 'signup' %}" class="btn-fire text-sm py-3 text-center">Sign Up</a>
           </div>
         </div>
       </div>
     </div>
   </nav>
+
+
 
   <!-- Hero Section -->
   <section id="home" class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
@@ -570,7 +572,7 @@
               <i data-lucide="flame" class="w-8 h-8 text-primary animate-flicker"></i>
             </div>
             <span class="font-display font-bold text-lg text-foreground">
-              FIRE<span class="text-primary">GUARD</span>
+              FS<span class="text-primary">MD</span>
             </span>
           </a>
           <p class="text-muted-foreground text-sm leading-relaxed">
@@ -582,7 +584,7 @@
           <h4 class="font-display font-semibold text-foreground mb-6">Contact Us</h4>
           <ul class="space-y-4">
             <li class="flex items-center gap-3 text-muted-foreground text-sm">
-              <i data-lucide="mail" class="w-4 h-4 text-primary"></i> support@fireguard.ai
+              <i data-lucide="mail" class="w-4 h-4 text-primary"></i> support@fsmd.com
             </li>
             <li class="flex items-center gap-3 text-muted-foreground text-sm">
               <i data-lucide="phone" class="w-4 h-4 text-primary"></i> +1 (555) 123-4567
@@ -591,7 +593,7 @@
         </div>
       </div>
       <div class="mt-12 pt-8 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-4">
-        <p class="text-muted-foreground text-sm">© 2024 FireGuard. All rights reserved.</p>
+        <p class="text-muted-foreground text-sm">© 2025 FSMD. All rights reserved.</p>
       </div>
     </div>
   </footer>

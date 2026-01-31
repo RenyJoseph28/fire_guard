@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - FireGuard</title>
+    <title>Sign Up - FSMD</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,12 +75,24 @@
     <!-- Overlay -->
     <div class="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
 
+    
+
     <!-- Sign Up Modal -->
     <div class="relative w-full max-w-md p-8 rounded-2xl glass-modal animate-fade-in-up">
         <!-- Close Button -->
         <a href="/" class="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
             <i data-lucide="x" class="w-5 h-5"></i>
         </a>
+ {% if messages %}
+                <div class="messages-container">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        <i data-lucide="{% if message.tags == 'error' %}alert-circle{% elif message.tags == 'success' %}check-circle{% else %}info{% endif %}" class="alert-icon"></i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
 
         <!-- Header -->
         <div class="text-center mb-8">
@@ -89,11 +101,13 @@
                 <i data-lucide="flame" class="w-6 h-6 text-primary"></i>
             </div>
             <h1 class="font-display text-2xl font-bold mb-2">Create Account</h1>
-            <p class="text-muted-foreground text-sm">Join FireGuard for real-time fire monitoring</p>
+            <p class="text-muted-foreground text-sm">Join FSMD for real-time fire monitoring</p>
         </div>
 
         <!-- Form -->
-        <form class="space-y-4">
+    <form method="POST" action="{% url 'signup' %}" class="space-y-4">
+       {% csrf_token %}
+
             <!-- Full Name -->
             <div class="space-y-2">
                 <div class="relative group input-field border rounded-lg transition-all duration-300">
@@ -101,7 +115,7 @@
                         class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
                         <i data-lucide="user" class="w-5 h-5"></i>
                     </div>
-                    <input type="text" placeholder="Full Name"
+                    <input type="text" placeholder="Full Name" name="full_name"
                         class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground/70"
                         required>
                 </div>
@@ -114,7 +128,7 @@
                         class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
                         <i data-lucide="mail" class="w-5 h-5"></i>
                     </div>
-                    <input type="email" placeholder="Email Address"
+                    <input type="email" placeholder="Email Address" name="email"
                         class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground/70"
                         required>
                 </div>
@@ -127,12 +141,29 @@
                         class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
                         <i data-lucide="lock" class="w-5 h-5"></i>
                     </div>
-                    <input type="password" id="password" placeholder="Password"
+                    <input type="password" id="password1" name="password1" placeholder="Password"
                         class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground/70"
                         required>
-                    <button type="button" onclick="togglePassword()"
+                    <button type="button" onclick="togglePassword('password1','eye1')"
                         class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                        <i data-lucide="eye" id="eye-icon" class="w-5 h-5"></i>
+                        <i data-lucide="eye" id="eye" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- confirm  Password -->
+            <div class="space-y-2">
+                <div class="relative group input-field border rounded-lg transition-all duration-300">
+                    <div
+                        class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                    </div>
+                    <input type="password" id="password2" name="password2" placeholder="Confirm Password"
+                        class="w-full bg-transparent border-none outline-none py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground/70"
+                        required>
+                    <button type="button" onclick="togglePassword('password2','eye2')"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                        <i data-lucide="eye" id="eye2" class="w-5 h-5"></i>
                     </button>
                 </div>
             </div>
@@ -147,27 +178,28 @@
         <!-- Footer -->
         <div class="mt-8 text-center text-sm text-muted-foreground">
             Already have an account?
-            <a href="/signin/" class="text-primary hover:text-primary/80 font-medium transition-colors">Sign In</a>
+            <a href="{% url 'signin' %}" class="text-primary hover:text-primary/80 font-medium transition-colors">Sign In</a>
         </div>
     </div>
+<script>
+    lucide.createIcons();
 
-    <script>
-        lucide.createIcons();
+    function togglePassword(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
 
-        function togglePassword() {
-            const input = document.getElementById('password');
-            const icon = document.getElementById('eye-icon');
-
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.setAttribute('data-lucide', 'eye-off');
-            } else {
-                input.type = 'password';
-                icon.setAttribute('data-lucide', 'eye');
-            }
-            lucide.createIcons();
+        if (input.type === "password") {
+            input.type = "text";
+            icon.setAttribute("data-lucide", "eye-off");
+        } else {
+            input.type = "password";
+            icon.setAttribute("data-lucide", "eye");
         }
-    </script>
+
+        lucide.createIcons();
+    }
+</script>
+
 </body>
 
 </html>
