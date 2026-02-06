@@ -43,10 +43,16 @@ def admin_dashboard(request):
     # Get recent alerts from database
     recent_alerts = Alert.objects.order_by('-timestamp')[:10]
     
+    # Calculate stats
+    total_users = User.objects.filter(is_superuser=False).count()
+    active_alerts = Alert.objects.filter(is_resolved=False).count()
+    
     context = {
         'recent_alerts': recent_alerts,
+        'total_users': total_users,
+        'active_alerts': active_alerts,
         'alert_count': Alert.objects.count(),
-        'high_severity_count': Alert.objects.filter(severity='high').count()
+        'high_severity_count': Alert.objects.filter(severity__in=['high', 'critical']).count()
     }
     return render(request, 'adminpanel/dashboard.html', context)
 
@@ -93,3 +99,47 @@ def upload_video(request):
         return redirect('adminpanel:admin_dashboard')
 
     return render(request, 'adminpanel/upload_video.html')
+
+from .models import AlertRecipient
+
+def recipients_list(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return redirect('adminpanel:admin_login')
+    
+    recipients = AlertRecipient.objects.all().order_by('-created_at')
+    return render(request, 'adminpanel/recipients_list.html', {'recipients': recipients})
+
+def add_recipient(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return redirect('adminpanel:admin_login')
+        
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        critical_only = request.POST.get('critical_only') == 'on'
+        
+        if AlertRecipient.objects.filter(email=email).exists():
+            messages.error(request, "Email already exists.")
+        else:
+            AlertRecipient.objects.create(
+                name=name,
+                email=email,
+                receive_critical_only=critical_only
+            )
+            messages.success(request, "Recipient added successfully.")
+            return redirect('adminpanel:recipients_list')
+            
+    return render(request, 'adminpanel/add_recipient.html')
+
+def delete_recipient(request, recipient_id):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return redirect('adminpanel:admin_login')
+        
+    try:
+        recipient = AlertRecipient.objects.get(id=recipient_id)
+        recipient.delete()
+        messages.success(request, "Recipient removed.")
+    except AlertRecipient.DoesNotExist:
+        messages.error(request, "Recipient not found.")
+        
+    return redirect('adminpanel:recipients_list')

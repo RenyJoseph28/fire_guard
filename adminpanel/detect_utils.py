@@ -461,7 +461,10 @@ class FireDetector:
         
         img_io = io.BytesIO()
         pil_img.save(img_io, format='JPEG', quality=70)
-        img_content = ContentFile(img_io.getvalue(), name=f"alert_{label}.jpg")
+        
+        # Sanitize filename to remove invalid characters (like :) for Windows
+        safe_label = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in label]).strip().replace(' ', '_')
+        img_content = ContentFile(img_io.getvalue(), name=f"alert_{safe_label}.jpg")
 
         # Determine severity if not forced
         if severity is None:
@@ -486,9 +489,153 @@ class FireDetector:
             display_label = 'Fire/Burning Detected'
 
         # Avoid duplicates: Check if similar alert exists recently (optional logic)
-        Alert.objects.create(
+        # Avoid duplicates: Check if similar alert exists recently (optional logic)
+        alert = Alert.objects.create(
             alert_type=display_label,
             confidence=confidence,
             severity=severity,
             snapshot=img_content
         )
+        
+        # Send Email Notification
+        try:
+            FireDetector.send_alert_email(alert)
+        except Exception as e:
+            print(f"Error sending email alert: {e}")
+
+    @staticmethod
+    def send_alert_email(alert):
+        from django.core.mail import EmailMultiAlternatives
+        from django.conf import settings
+        from .models import AlertRecipient
+
+        # 1. Get recipients
+        is_critical = alert.severity in ['high', 'critical']
+        if is_critical:
+            recipients = AlertRecipient.objects.filter(is_active=True)
+        else:
+            recipients = AlertRecipient.objects.filter(is_active=True, receive_critical_only=False)
+            
+        if not recipients.exists():
+            return
+
+        recipient_list = [r.email for r in recipients]
+        
+        # 2. Construct Email
+        # Subject
+        icon = "🔥"
+        if alert.severity == 'critical': icon = "⚠️"
+        elif alert.severity == 'low': icon = "☁️"
+        
+        subject = f"{icon} FIRE GUARD ALERT: {alert.alert_type} Detected [{alert.severity.upper()}]"
+        
+        # Plain Text Body (Fallback)
+        text_body = f"""
+        FIRE GUARD SECURITY ALERT
+        =========================
+        
+        A potential hazard has been detected by the AI Surveillance System.
+        
+        DETAILS:
+        - Hazard Type: {alert.alert_type}
+        - Severity: {alert.severity.upper()}
+        - Location: {alert.location}
+        - Time: {alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
+        
+        ACTION REQUIRED:
+        Please verify this alert immediately. Check the FireGuard Admin Dashboard for live feed and analysis.
+        
+        --
+        Automated Alert System - Fire Guard
+        """
+        
+        # HTML Body (Nice looking)
+        color = "#e11d48" # Red
+        if alert.severity == 'medium': color = "#f97316" # Orange
+        if alert.severity == 'low': color = "#6b7280" # Grey
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }}
+                .header {{ background-color: {color}; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 25px; background-color: #ffffff; }}
+                .alert-box {{ background-color: #fff1f2; border-left: 4px solid {color}; padding: 15px; margin: 20px 0; }}
+                .details-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                .details-table td {{ padding: 8px 0; border-bottom: 1px solid #f3f4f6; }}
+                .label {{ font-weight: bold; color: #555; width: 30%; }}
+                .footer {{ background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; }}
+                .button {{ display: inline-block; padding: 10px 20px; background-color: {color}; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1 style="margin:0; font-size: 24px;">SECURITY ALERT</h1>
+                </div>
+                <div class="content">
+                    <h2 style="margin-top:0; color: {color};">⚠️ {alert.alert_type} Detected</h2>
+                    <p>The FireGuard AI System has detected a potential fire hazard requiring your attention.</p>
+                    
+                    <div class="alert-box">
+                        <table class="details-table">
+                            <tr>
+                                <td class="label">Hazard Type:</td>
+                                <td><strong>{alert.alert_type}</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="label">Severity Level:</td>
+                                <td style="color: {color}; font-weight: bold;">{alert.severity.upper()}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Location:</td>
+                                <td>{alert.location}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Time:</td>
+                                <td>{alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <p><strong>Recommended Action:</strong> Please verify the situation immediately. If this is a real emergency, initiate standard safety protocols.</p>
+                    
+                    <center>
+                        <p style="font-size: 14px; color: #888;">Snapshot from surveillance feed is attached below.</p>
+                    </center>
+                </div>
+                <div class="footer">
+                    &copy; 2025 Fire Guard AI System. Automated Message.<br>
+                    Please do not reply to this email.
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        email = EmailMultiAlternatives(
+            subject,
+            text_body,
+            settings.DEFAULT_FROM_EMAIL,
+            [],  # To
+            recipient_list,  # Bcc
+        )
+        # Attach HTML version
+        email.attach_alternative(html_body, "text/html")
+        
+        # 3. Attach Snapshot
+        if alert.snapshot:
+            try:
+                alert.snapshot.open('rb')
+                email.attach(alert.snapshot.name, alert.snapshot.read(), 'image/jpeg')
+                alert.snapshot.close()
+            except Exception as e:
+                print(f"Could not attach image: {e}")
+        
+        # 4. Send
+        print(f"Sending email alert to {len(recipient_list)} recipients...")
+        email.send(fail_silently=False)
+        print("Email sent successfully.")

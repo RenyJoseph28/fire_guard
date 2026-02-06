@@ -445,8 +445,17 @@ class EnhancedFireAnalysis:
                     text_lines = [f"{display_label} {confidence:.2f}"]
                     
                     if material_info:
-                        text_lines.append(f"{material_info['class']}")
-                        text_lines.append(f"{material_info['description']}")
+                        # Construct the message as requested
+                        cls_name = material_info['class']
+                        msg = f"Fire detected and {cls_name} type materials are near by"
+                        text_lines.append(msg)
+                        # Optional: Keep description if needed, or remove if the long message is enough. 
+                        # The user asked for "fire detected and class A type materials are near by", 
+                        # so I will prioritize that.
+                        # I will add the description in a new line or keep it if it fits, 
+                        # but the long message might be enough. 
+                        # I'll keep the description as a second line for clarity if it's not too much.
+                        text_lines.append(f"({material_info['description']})")
                     
                     # Draw label background
                     y_offset = y1 - 10

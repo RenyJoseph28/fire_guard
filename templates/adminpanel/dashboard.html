@@ -78,6 +78,17 @@
                             Reports
                         </a>
                     </li> -->
+                    <li>
+                        <a href="{% url 'adminpanel:recipients_list' %}"
+                            class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            Alert Recipients
+                        </a>
+                    </li>
                 </ul>
             </nav>
             <div class="p-4 border-t border-gray-800">
@@ -133,8 +144,8 @@
                                 </svg>
                             </div>
                         </div>
-                        <span class="text-2xl font-bold text-gray-800">1,234</span>
-                        <span class="text-xs text-green-500 font-medium ml-2">↑ 12% from last month</span>
+                        <span class="text-2xl font-bold text-gray-800">{{ total_users }}</span>
+                        <span class="text-xs text-green-500 font-medium ml-2">Registered Users</span>
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -148,7 +159,7 @@
                                 </svg>
                             </div>
                         </div>
-                        <span class="text-2xl font-bold text-gray-800">23</span>
+                        <span class="text-2xl font-bold text-gray-800">{{ active_alerts }}</span>
                         <span class="text-xs text-red-500 font-medium ml-2">Requires attention</span>
                     </div>
 
@@ -245,6 +256,19 @@
     <audio id="alarm-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"
         loop></audio>
 
+    <!-- Alarm Controls -->
+    <button id="stop-alarm-btn"
+        class="hidden fixed bottom-8 right-8 bg-red-600 hover:bg-red-700 text-white px-6 py-4 rounded-full font-bold shadow-lg z-50 animate-pulse flex items-center gap-3 transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                clip-rule="evenodd" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+        </svg>
+        STOP ALARM
+    </button>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Check if there are any RECENT critical or high alerts
@@ -256,9 +280,19 @@
             const hasCritical = document.querySelector('.bg-red-600');
             const hasHigh = document.querySelector('.bg-red-100');
 
+            const stopBtn = document.getElementById('stop-alarm-btn');
+            const audio = document.getElementById('alarm-sound');
+
+            // Handle Stop Button Click
+            stopBtn.addEventListener('click', function () {
+                audio.pause();
+                audio.currentTime = 0;
+                stopBtn.classList.add('hidden');
+                console.log("🔕 Alarm stopped by user");
+            });
+
             // Only trigger alarm if we just uploaded AND there are alerts
             if (justUploaded && (hasCritical || hasHigh)) {
-                const audio = document.getElementById('alarm-sound');
                 audio.volume = 0.5;
 
                 const playPromise = audio.play();
@@ -266,6 +300,8 @@
                 if (playPromise !== undefined) {
                     playPromise.then(_ => {
                         console.log("🔊 Alarm playing!");
+                        // Show Stop Button
+                        stopBtn.classList.remove('hidden');
                     }).catch(error => {
                         console.log("Audio blocked - showing enable button");
                         const btn = document.createElement("button");
@@ -273,6 +309,7 @@
                         btn.className = "fixed top-20 right-4 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-lg z-50 cursor-pointer animate-pulse";
                         btn.onclick = () => {
                             audio.play();
+                            stopBtn.classList.remove('hidden'); // Show stop button once allowed
                             btn.remove();
                         };
                         document.body.appendChild(btn);
@@ -281,11 +318,12 @@
 
                 if (hasCritical) {
                     setTimeout(() => {
-                        alert("⚠️ CRITICAL WARNING: Class B Fire Hazard Detected!");
+                        // Alert is annoying, maybe just log? But user had it before.
+                        // alert("⚠️ CRITICAL WARNING: Class B Fire Hazard Detected!");
                     }, 500);
                 } else if (hasHigh) {
                     setTimeout(() => {
-                        alert("🔥 WARNING: Fire/Smoke Detected!");
+                        // alert("🔥 WARNING: Fire/Smoke Detected!");
                     }, 500);
                 }
 
