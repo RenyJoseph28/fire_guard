@@ -554,6 +554,19 @@ class FireDetector:
         if alert.severity == 'medium': color = "#f97316" # Orange
         if alert.severity == 'low': color = "#6b7280" # Grey
         
+        # Determine functionality based on class
+        extinguisher = "General Safety Protocols"
+        
+        at_upper = alert.alert_type.upper()
+        if "CLASS A" in at_upper:
+            extinguisher = "Water, Foam, ABC Powder"
+        elif "CLASS B" in at_upper or "LIQUID" in at_upper or "GAS" in at_upper or "CYLINDER" in at_upper:
+            extinguisher = "Foam, CO2, Dry Powder"
+        elif "CLASS C" in at_upper or "ELECTRICAL" in at_upper:
+            extinguisher = "CO2, Dry Powder (DO NOT USE WATER)"
+        elif "CLASS K" in at_upper or "COOKING" in at_upper:
+            extinguisher = "Wet Chemical"
+            
         html_body = f"""
         <!DOCTYPE html>
         <html>
@@ -589,6 +602,10 @@ class FireDetector:
                             <tr>
                                 <td class="label">Severity Level:</td>
                                 <td style="color: {color}; font-weight: bold;">{alert.severity.upper()}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Recommended Extinguisher:</td>
+                                <td style="color: #d97706; font-weight: bold;">{extinguisher}</td>
                             </tr>
                             <tr>
                                 <td class="label">Location:</td>
