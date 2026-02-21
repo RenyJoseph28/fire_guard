@@ -143,3 +143,127 @@ def delete_recipient(request, recipient_id):
         messages.error(request, "Recipient not found.")
         
     return redirect('adminpanel:recipients_list')
+
+# ========== FCM Push Notifications ==========
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from .models import FCMDevice
+import json
+import requests
+
+@csrf_exempt
+@require_POST
+def save_fcm_token(request):
+    """API endpoint to save FCM token from frontend"""
+    try:
+        data = json.loads(request.body)
+        token = data.get('token')
+        device_name = data.get('device_name', 'Unknown Device')
+        
+        if not token:
+            return JsonResponse({'error': 'Token is required'}, status=400)
+        
+        # Create or update the device
+        device, created = FCMDevice.objects.update_or_create(
+            token=token,
+            defaults={
+                'user': request.user if request.user.is_authenticated else None,
+                'device_name': device_name,
+                'is_active': True
+            }
+        )
+        
+        print(f"FCM Token saved: {device_name} ({'new' if created else 'updated'})")
+        return JsonResponse({'success': True, 'created': created, 'device_name': device_name})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+def send_push_notification(title, body, data=None):
+    """
+    Send push notification to all registered FCM devices.
+    Uses Firebase Admin SDK with Service Account.
+    Includes throttling to avoid notification flooding.
+    """
+    from django.conf import settings
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+    import time
+    
+    # Throttle: only send one notification every 30 seconds
+    current_time = time.time()
+    last_sent = getattr(send_push_notification, '_last_sent_time', 0)
+    if current_time - last_sent < 30:
+        print(f"Push notification throttled (sent {int(current_time - last_sent)}s ago, wait 30s)")
+        return False
+    
+    # Get all active FCM tokens
+    devices = FCMDevice.objects.filter(is_active=True)
+    tokens = [d.token for d in devices]
+    
+    if not tokens:
+        print("No FCM devices registered")
+        return False
+    
+    # Initialize Firebase Admin SDK (only once)
+    if not firebase_admin._apps:
+        cred_path = getattr(settings, 'FIREBASE_CREDENTIALS_FILE', None)
+        if not cred_path:
+            print("FIREBASE_CREDENTIALS_FILE not configured in settings.py")
+            return False
+        
+        cred = credentials.Certificate(str(cred_path))
+        firebase_admin.initialize_app(cred)
+    
+    # Create message for each token (FCM V1 API)
+    success_count = 0
+    failure_count = 0
+    
+    for token in tokens:
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            webpush=messaging.WebpushConfig(
+                notification=messaging.WebpushNotification(
+                    icon='/static/icons/icon-192x192.png',
+                    badge='/static/icons/icon-72x72.png',
+                    vibrate=[500, 200, 500, 200, 500, 200, 500],
+                    require_interaction=True,
+                ),
+            ),
+            # High priority for Android to wake the device and play sound
+            android=messaging.AndroidConfig(
+                priority='high',
+                notification=messaging.AndroidNotification(
+                    sound='default',
+                    priority='max',
+                    channel_id='fire_alerts',
+                    notification_count=1,
+                    sticky=True,
+                ),
+            ),
+            data={str(k): str(v) for k, v in (data or {}).items()},
+            token=token
+        )
+        
+        try:
+            response = messaging.send(message)
+            print(f"FCM Success: {response}")
+            success_count += 1
+        except Exception as e:
+            error_str = str(e).lower()
+            print(f"FCM Error for token {token[:20]}...: {e}")
+            failure_count += 1
+            # Deactivate invalid/unregistered tokens
+            if 'notregistered' in error_str or 'not-registered' in error_str or 'not registered' in error_str or 'invalid' in error_str:
+                FCMDevice.objects.filter(token=token).update(is_active=False)
+                print(f"  → Token deactivated")
+    
+    # Update last sent time
+    send_push_notification._last_sent_time = current_time
+    
+    print(f"Push notifications sent: {success_count} success, {failure_count} failed")
+    return success_count > 0
+

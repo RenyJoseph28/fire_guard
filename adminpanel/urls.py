@@ -10,4 +10,7 @@ urlpatterns = [
     path('recipients/', views.recipients_list, name='recipients_list'),
     path('recipients/add/', views.add_recipient, name='add_recipient'),
     path('recipients/delete/<int:recipient_id>/', views.delete_recipient, name='delete_recipient'),
+    
+    # API Endpoints
+    path('api/save-fcm-token/', views.save_fcm_token, name='save_fcm_token'),
 ]

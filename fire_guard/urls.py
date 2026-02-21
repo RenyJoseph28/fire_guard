@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
+from django.views.static import serve
+from django.conf import settings
 
 
 urlpatterns = [
@@ -24,9 +26,11 @@ urlpatterns = [
     path("", include("public.urls")),
     # path("user/", include("user.urls")),
     path('adminpanel/', include('adminpanel.urls')),
+    # Serve Service Worker files from root (required for correct scope)
+    path('service-worker.js', serve, {'path': 'service-worker.js', 'document_root': settings.STATIC_ROOT if not settings.DEBUG else settings.STATICFILES_DIRS[0]}),
+    path('firebase-messaging-sw.js', serve, {'path': 'firebase-messaging-sw.js', 'document_root': settings.STATIC_ROOT if not settings.DEBUG else settings.STATICFILES_DIRS[0]}),
 ]
 
-from django.conf import settings
 from django.conf.urls.static import static
 
 if settings.DEBUG:

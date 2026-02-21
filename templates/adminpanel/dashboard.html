@@ -33,10 +33,24 @@
 </head>
 
 <body class="bg-gray-50 font-sans">
-    <div class="flex h-screen overflow-hidden">
+    <!-- Mobile Header -->
+    <div class="md:hidden bg-gray-900 text-white p-4 flex items-center justify-between sticky top-0 z-50">
+        <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-orange-500">
+            FireGuard
+        </span>
+        <button id="mobile-sidebar-toggle" class="p-2 text-gray-400 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="flex h-screen overflow-hidden relative">
         <!-- Sidebar -->
-        <aside class="w-64 bg-gray-900 text-white flex-shrink-0 hidden md:flex flex-col">
-            <div class="p-6 border-b border-gray-800">
+        <aside id="sidebar"
+            class="w-64 bg-gray-900 text-white flex-shrink-0 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-40 flex flex-col">
+            <div class="p-6 border-b border-gray-800 hidden md:block">
                 <span
                     class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-orange-500">
                     FireGuard
@@ -330,8 +344,31 @@
                 // Clean up URL so alarm doesn't trigger on refresh
                 window.history.replaceState({}, '', window.location.pathname);
             }
+
+            // Mobile Sidebar Toggle
+            const sidebar = document.getElementById('sidebar');
+            const toggleBtn = document.getElementById('mobile-sidebar-toggle');
+
+            if (toggleBtn && sidebar) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('-translate-x-full');
+                });
+
+                // Close sidebar when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!sidebar.contains(e.target) && !sidebar.classList.contains('-translate-x-full')) {
+                        sidebar.classList.add('-translate-x-full');
+                    }
+                });
+            }
         });
     </script>
+
+    <!-- Firebase SDK for Push Notifications -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+    <script src="{% static 'js/firebase-messaging.js' %}?v=3"></script>
 </body>
 
 </html>

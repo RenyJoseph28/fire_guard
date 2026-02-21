@@ -5,3 +5,4 @@ numpy>=1.24
 Pillow>=10.0
 mysqlclient==2.2.7
 requests>=2.31
+firebase-admin>=7.0

@@ -502,6 +502,15 @@ class FireDetector:
             FireDetector.send_alert_email(alert)
         except Exception as e:
             print(f"Error sending email alert: {e}")
+        
+        # Send Push Notification
+        try:
+            from .views import send_push_notification
+            title = f"🔥 {display_label}"
+            body = f"Severity: {severity.upper()} | Location: Camera 1"
+            send_push_notification(title, body, {'alert_id': alert.id})
+        except Exception as e:
+            print(f"Error sending push notification: {e}")
 
     @staticmethod
     def send_alert_email(alert):

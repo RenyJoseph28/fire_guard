@@ -25,7 +25,14 @@ SECRET_KEY = "django-insecure-tl&atg+vba6^$ly@v&2zyz5xwijqflt5!n-6rr+i605$hxdn3m
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['172.25.10.24', 'localhost', '127.0.0.1', '*']
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.dev',
+    'https://*.ngrok.io',
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
 
 
 # Application definition
@@ -124,6 +131,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -143,3 +153,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'mail id' 
 EMAIL_HOST_PASSWORD = 'pass key' 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Firebase Cloud Messaging (FCM) Configuration
+# Using Firebase Admin SDK with Service Account
+FIREBASE_CREDENTIALS_FILE = BASE_DIR / 'fireguard-fbe22-efa549248415.json'
