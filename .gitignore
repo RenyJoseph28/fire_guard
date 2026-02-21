@@ -17,3 +17,6 @@ __pycache__/
 
 #Ignore all files in the error_log folder
 error_logs/
+
+*.json
+fireguard-fbe22-efa549248415.json
