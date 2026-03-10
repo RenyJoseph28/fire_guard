@@ -10,6 +10,8 @@ urlpatterns = [
     path('recipients/', views.recipients_list, name='recipients_list'),
     path('recipients/add/', views.add_recipient, name='add_recipient'),
     path('recipients/delete/<int:recipient_id>/', views.delete_recipient, name='delete_recipient'),
+    path('live/', views.live_detection, name='live_detection'),
+    path('api/process-live-frame/', views.process_live_frame, name='process_live_frame'),
     
     # API Endpoints
     path('api/save-fcm-token/', views.save_fcm_token, name='save_fcm_token'),

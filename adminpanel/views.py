@@ -6,6 +6,12 @@ from .models import Alert
 from django.core.files.storage import FileSystemStorage
 from .detect_utils import FireDetector
 import os
+import base64
+import numpy as np
+import cv2
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
 
 def admin_login(request):
     if request.method == 'POST':
@@ -143,6 +149,52 @@ def delete_recipient(request, recipient_id):
         messages.error(request, "Recipient not found.")
         
     return redirect('adminpanel:recipients_list')
+
+def live_detection(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return redirect('adminpanel:admin_login')
+    return render(request, 'adminpanel/live_detection.html')
+
+@csrf_exempt
+@require_POST
+def process_live_frame(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        from django.http import JsonResponse
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+        
+    try:
+        from django.http import JsonResponse
+        import json
+        data = json.loads(request.body)
+        image_data = data.get('image')
+        
+        if not image_data:
+            return JsonResponse({'error': 'No image provided'}, status=400)
+            
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+            
+        img_bytes = base64.b64decode(image_data)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return JsonResponse({'error': 'Invalid image format'}, status=400)
+            
+        # Use our new static method
+        detections, alerts_created = FireDetector.process_live_frame(frame)
+        
+        return JsonResponse({
+            'success': True,
+            'detections': detections,
+            'alerts_created': alerts_created
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        from django.http import JsonResponse
+        return JsonResponse({'error': str(e)}, status=500)
 
 # ========== FCM Push Notifications ==========
 from django.http import JsonResponse

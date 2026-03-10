@@ -1,0 +1,275 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Detection - Fire Guard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 flex flex-col h-screen overflow-hidden font-sans">
+    <header class="bg-gray-900 text-white p-4 flex items-center justify-between shadow-md z-10">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'adminpanel:admin_dashboard' %}" class="text-gray-400 hover:text-white transition-colors" title="Back to Dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-500">Live Fire Detection</h1>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto relative p-6 flex flex-col items-center">
+        <!-- Status indicator -->
+        <div id="status-badge" class="mb-6 bg-gray-200 text-gray-700 px-6 py-2 rounded-full font-medium flex items-center gap-3 shadow-sm text-sm">
+            <div class="w-3 h-3 rounded-full bg-gray-400" id="status-dot"></div>
+            <span id="status-text">Requesting Camera Access...</span>
+        </div>
+
+        <!-- Video Container -->
+        <div class="relative w-full max-w-4xl bg-black rounded-xl shadow-2xl overflow-hidden flex flex-col items-center justify-center border-4 border-gray-800">
+            <div class="relative w-full" style="line-height: 0;">
+                <video id="live-video" autoplay playsinline class="w-full h-auto" muted></video>
+                <canvas id="overlay-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></canvas>
+            </div>
+            
+            <div id="loading-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-20 transition-opacity duration-300">
+                <svg class="animate-spin h-10 w-10 text-red-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-white font-medium">Initializing Analysis...</p>
+            </div>
+            
+            <!-- Hidden canvas for capturing frames -->
+            <canvas id="capture-canvas" class="hidden"></canvas>
+        </div>
+        
+        <div class="mt-8 flex gap-4">
+            <button id="start-btn" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 hidden flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                </svg>
+                Start Detection
+            </button>
+            <button id="stop-btn" class="bg-gray-700 hover:bg-gray-800 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform flex items-center gap-2 hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                </svg>
+                Stop Detection
+            </button>
+        </div>
+        
+        <div class="mt-8 text-center text-sm text-gray-500 max-w-xl">
+            <p>Ensure your device camera is properly positioned. The system will process frames every second and automatically send alerts when fire is detected.</p>
+        </div>
+    </main>
+
+    <script>
+        const video = document.getElementById('live-video');
+        const overlay = document.getElementById('overlay-canvas');
+        const overlayCtx = overlay.getContext('2d');
+        const captureCanvas = document.getElementById('capture-canvas');
+        const captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
+        
+        const statusBadge = document.getElementById('status-badge');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        
+        let isDetecting = false;
+        let detectionInterval;
+        const FPS = 2; // Process 2 frames per second
+        let isProcessing = false;
+        
+        function setStatus(state, text) {
+            statusText.textContent = text;
+            statusBadge.className = 'mb-6 px-6 py-2 rounded-full font-medium flex items-center gap-3 shadow-sm text-sm transition-colors duration-300';
+            
+            if (state === 'pending') {
+                statusBadge.classList.add('bg-yellow-100', 'text-yellow-800', 'border', 'border-yellow-200');
+                statusDot.className = 'w-3 h-3 rounded-full bg-yellow-500 animate-pulse';
+            } else if (state === 'active') {
+                statusBadge.classList.add('bg-green-100', 'text-green-800', 'border', 'border-green-200');
+                statusDot.className = 'w-3 h-3 rounded-full bg-green-500 animate-pulse';
+            } else if (state === 'error') {
+                statusBadge.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-200');
+                statusDot.className = 'w-3 h-3 rounded-full bg-red-500 animate-bounce';
+            } else {
+                statusBadge.classList.add('bg-gray-200', 'text-gray-700', 'border', 'border-gray-300');
+                statusDot.className = 'w-3 h-3 rounded-full bg-gray-400';
+            }
+        }
+
+        async function initCamera() {
+            try {
+                let stream;
+                try {
+                    // Try to get environment (back) camera first
+                    const constraints = {
+                        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+                    };
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (e) {
+                    console.log("Environment camera not found, falling back to default camera");
+                    // Fallback to any default camera (e.g., laptop webcam)
+                    const fallbackConstraints = {
+                        video: { width: { ideal: 640 }, height: { ideal: 480 } }
+                    };
+                    stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                }
+                
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    
+                    // Set canvas dimensions to match video to ensure accurate bounding boxes
+                    overlay.width = video.videoWidth;
+                    overlay.height = video.videoHeight;
+                    captureCanvas.width = video.videoWidth;
+                    captureCanvas.height = video.videoHeight;
+                    
+                    loadingOverlay.classList.add('opacity-0');
+                    setTimeout(() => {
+                        loadingOverlay.classList.add('hidden');
+                        startBtn.classList.remove('hidden');
+                        setStatus('pending', 'Camera Ready. Click Start.');
+                    }, 300);
+                };
+            } catch (err) {
+                console.error('Camera access error:', err);
+                setStatus('error', 'Camera Access Denied or Unavailable');
+                loadingOverlay.classList.add('hidden');
+                alert("Could not access camera. Please ensure you have granted camera permissions securely (HTTPS or localhost).");
+            }
+        }
+
+        function startDetection() {
+            if (isDetecting) return;
+            isDetecting = true;
+            setStatus('active', 'Live Detection Active');
+            
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            
+            detectionInterval = setInterval(processFrame, 1000 / FPS);
+        }
+        
+        function stopDetection() {
+            isDetecting = false;
+            clearInterval(detectionInterval);
+            setStatus('pending', 'Detection Paused');
+            
+            // Clear overlay
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+        }
+
+        startBtn.addEventListener('click', startDetection);
+        stopBtn.addEventListener('click', stopDetection);
+
+        async function processFrame() {
+            // Guard against overlapping requests
+            if (!isDetecting || video.paused || video.ended || isProcessing) return;
+            isProcessing = true;
+            
+            try {
+                // Ensure dimensions match
+                if (captureCanvas.width !== video.videoWidth) {
+                    captureCanvas.width = video.videoWidth;
+                    captureCanvas.height = video.videoHeight;
+                    overlay.width = video.videoWidth;
+                    overlay.height = video.videoHeight;
+                }
+                
+                // Draw current video frame to capture canvas
+                captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+                
+                // Convert to base64 jpeg
+                const base64Data = captureCanvas.toDataURL('image/jpeg', 0.6); // slight compression for speed
+                
+                const response = await fetch("{% url 'adminpanel:process_live_frame' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ image: base64Data })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && isDetecting) {
+                        drawDetections(data.detections);
+                    }
+                }
+            } catch (err) {
+                console.error("Frame processing error:", err);
+            } finally {
+                isProcessing = false;
+            }
+        }
+        
+        function drawDetections(detections) {
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            let fireDetected = false;
+            
+            detections.forEach(det => {
+                const [x1, y1, x2, y2] = det.box;
+                const label = det.label;
+                const conf = det.conf.toFixed(2);
+                
+                const isFire = label.toLowerCase().includes('fire') || label.toLowerCase() === 'default';
+                if (isFire) fireDetected = true;
+                
+                const color = isFire ? '#ef4444' : '#f59e0b'; // Red for fire, yellow for others
+                
+                // Draw Box
+                overlayCtx.strokeStyle = color;
+                overlayCtx.lineWidth = 4;
+                overlayCtx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                
+                // Draw Label Background
+                overlayCtx.fillStyle = color;
+                overlayCtx.font = 'bold 18px Inter, sans-serif';
+                const text = `${label} ${(det.conf * 100).toFixed(0)}%`;
+                const textWidth = overlayCtx.measureText(text).width;
+                overlayCtx.fillRect(x1, y1 - 30, textWidth + 16, 30);
+                
+                // Draw Label Text
+                overlayCtx.fillStyle = '#ffffff';
+                overlayCtx.fillText(text, x1 + 8, y1 - 8);
+            });
+            
+            if (fireDetected) {
+                overlay.parentElement.classList.add('shadow-[0_0_50px_rgba(239,68,68,0.7)]');
+                setStatus('error', 'WARNING: FIRE DETECTED!');
+            } else {
+                overlay.parentElement.classList.remove('shadow-[0_0_50px_rgba(239,68,68,0.7)]');
+                if (isDetecting) setStatus('active', 'Monitoring for Hazards...');
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initCamera);
+    </script>
+</body>
+</html>

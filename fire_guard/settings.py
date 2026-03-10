@@ -87,9 +87,9 @@ WSGI_APPLICATION = "fire_guard.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'fire_guard_db',
+        'NAME': 'fire_guard',
         'USER': 'root',
-        'PASSWORD': 'admin',
+        'PASSWORD': 'mysql',
         'HOST': 'localhost',
         'PORT': '3306',
     }

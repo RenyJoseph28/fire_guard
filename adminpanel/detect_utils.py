@@ -169,9 +169,9 @@ def is_valid_fire_smoke(frame, xyxy, label, conf, width, height, has_fire_in_fra
         # Max penalty
         fog_score = min(fog_score, 1.0)
         
-        # Dynamic Threshold: VERY AGGRESSIVE for fog-like detections
-        # If fog_score = 1.0, need confidence > 0.90 to pass
-        dynamic_thresh = 0.15 + (fog_score * 0.75) 
+        # Dynamic Threshold: LESS AGGRESSIVE for fog-like detections in live camera
+        # If fog_score = 1.0, need confidence > 0.55 to pass (was previous >0.90)
+        dynamic_thresh = 0.15 + (fog_score * 0.40) 
         
         if conf < dynamic_thresh:
             print(f"DEBUG: Rejected Fog candidate '{label}' (Conf {conf:.2f} < Thresh {dynamic_thresh:.2f}, Score {fog_score:.2f})")
@@ -452,6 +452,75 @@ class FireDetector:
         
         cap.release()
         return alerts_created
+
+    @staticmethod
+    def process_live_frame(frame):
+        """Processes a single live frame, returning a list of detections and ensuring throttled alerts."""
+        fire_model = FireDetector.get_fire_model()
+        width = frame.shape[1]
+        height = frame.shape[0]
+        
+        frame_detections = []
+        has_fire_in_frame = False
+        raw_detections = []
+        alerts_created = 0
+        detections_for_ui = []
+        
+        if fire_model:
+            results_fire = fire_model(frame, verbose=False, conf=0.1)
+            for result in results_fire:
+                for box in result.boxes:
+                    label = fire_model.names[int(box.cls[0])]
+                    conf = float(box.conf[0])
+                    xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                    
+                    raw_detections.append({
+                        'label': label,
+                        'conf': conf,
+                        'xyxy': xyxy
+                    })
+                    
+                    if ('fire' in label.lower() or label.lower() == 'default') and conf > 0.15:
+                        has_fire_in_frame = True
+        
+        for det in raw_detections:
+            label = det['label']
+            conf = det['conf']
+            xyxy = det['xyxy']
+            
+            if not is_valid_fire_smoke(frame, xyxy, label, conf, width, height, has_fire_in_frame):
+                continue
+            
+            display_label = label if label.lower() != 'default' else 'Fire'
+            
+            detections_for_ui.append({
+                'label': display_label,
+                'conf': float(conf),
+                'box': [int(x) for x in xyxy]
+            })
+            
+            allowed_labels = ['fire', 'smoke', 'cylinder', 'gas', 'burning', 'default', 'flames']
+            if label.lower() in allowed_labels and conf > 0.15:
+                # Throttling logic! We don't want 30 emails per second.
+                from django.utils import timezone
+                from datetime import timedelta
+                
+                # Check for recent identical alerts
+                alert_type_name = label if label.lower() != 'default' else 'Fire/Burning Detected'
+                
+                recent_alerts = Alert.objects.filter(alert_type=alert_type_name).order_by('-timestamp')
+                should_alert = True
+                if recent_alerts.exists():
+                    latest = recent_alerts.first()
+                    # Alert once every 20s
+                    if timezone.now() - latest.timestamp < timedelta(seconds=20):
+                        should_alert = False
+                
+                if should_alert:
+                    FireDetector.save_alert(frame, label, conf)
+                    alerts_created += 1
+                    
+        return detections_for_ui, alerts_created
 
     @staticmethod
     def save_alert(frame, label, confidence, severity=None):
