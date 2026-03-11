@@ -457,6 +457,7 @@ class FireDetector:
     def process_live_frame(frame):
         """Processes a single live frame, returning a list of detections and ensuring throttled alerts."""
         fire_model = FireDetector.get_fire_model()
+        material_model = FireDetector.get_material_model()
         width = frame.shape[1]
         height = frame.shape[0]
         
@@ -477,13 +478,63 @@ class FireDetector:
                     raw_detections.append({
                         'label': label,
                         'conf': conf,
-                        'xyxy': xyxy
+                        'xyxy': xyxy,
+                        'source': 'fire_model'
                     })
-                    
-                    if ('fire' in label.lower() or label.lower() == 'default') and conf > 0.15:
-                        has_fire_in_frame = True
         
+        detected_materials = []
+        raw_materials = []
+        person_boxes = []
+        if material_model:
+            results_material = material_model(frame, verbose=False)
+            for result in results_material:
+                for box in result.boxes:
+                    label = material_model.names[int(box.cls[0])]
+                    conf = float(box.conf[0])
+                    xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                    
+                    if conf > 0.25:
+                        detected_materials.append(label.lower())
+                        raw_materials.append({
+                            'label': label,
+                            'conf': conf,
+                            'xyxy': xyxy,
+                            'source': 'material_model'
+                        })
+                        if label.lower() == 'person':
+                            person_boxes.append(xyxy)
+                            
+        filtered_raw_detections = []
         for det in raw_detections:
+            label = det['label']
+            xyxy = det['xyxy']
+            conf = det['conf']
+            
+            is_person_falsely_detected = False
+            if 'fire' in label.lower() or label.lower() == 'default':
+                x1, y1, x2, y2 = xyxy
+                fire_area = max(0, x2 - x1) * max(0, y2 - y1)
+                
+                if fire_area > 0:
+                    for px1, py1, px2, py2 in person_boxes:
+                        ix1, iy1 = max(x1, px1), max(y1, py1)
+                        ix2, iy2 = min(x2, px2), min(y2, py2)
+                        
+                        if ix1 < ix2 and iy1 < iy2:
+                            inter_area = (ix2 - ix1) * (iy2 - iy1)
+                            if inter_area / fire_area > 0.4:
+                                is_person_falsely_detected = True
+                                break
+                            
+            if is_person_falsely_detected:
+                continue
+                
+            filtered_raw_detections.append(det)
+
+        has_fire_in_frame = any(('fire' in d['label'].lower() or d['label'].lower() == 'default') and d['conf'] > 0.15 for d in filtered_raw_detections)
+        has_cv2_cylinder = False
+        
+        for det in filtered_raw_detections:
             label = det['label']
             conf = det['conf']
             xyxy = det['xyxy']
@@ -491,35 +542,154 @@ class FireDetector:
             if not is_valid_fire_smoke(frame, xyxy, label, conf, width, height, has_fire_in_frame):
                 continue
             
-            display_label = label if label.lower() != 'default' else 'Fire'
+            frame_detections.append(det)
             
+            display_label = label if label.lower() != 'default' else 'Fire'
             detections_for_ui.append({
                 'label': display_label,
                 'conf': float(conf),
                 'box': [int(x) for x in xyxy]
             })
             
-            allowed_labels = ['fire', 'smoke', 'cylinder', 'gas', 'burning', 'default', 'flames']
-            if label.lower() in allowed_labels and conf > 0.15:
-                # Throttling logic! We don't want 30 emails per second.
-                from django.utils import timezone
-                from datetime import timedelta
+            if ('fire' in label.lower() or label.lower() == 'default') and conf > 0.15:
+                if detect_gas_cylinder_context(frame, xyxy, width, height):
+                    has_cv2_cylinder = True
+
+        for mat in raw_materials:
+            frame_detections.append(mat)
+            detections_for_ui.append({
+                'label': mat['label'],
+                'conf': float(mat['conf']),
+                'box': [int(x) for x in mat['xyxy']]
+            })
+            
+        has_fire = any(
+            ('fire' in d['label'].lower() or d['label'].lower() == 'default') 
+            and d['conf'] > 0.15 
+            for d in frame_detections if d.get('source') == 'fire_model'
+        )
+        
+        has_yolo_cylinder = any(('cylinder' in d['label'].lower() or 'gas' in d['label'].lower()) and d['conf'] > 0.15 for d in frame_detections if d.get('source') == 'fire_model')
+        has_cylinder = has_yolo_cylinder or has_cv2_cylinder
+        
+        fire_class = None
+        fire_class_desc = None
+        explosion_risk = False
+        burning_materials = []
+        
+        material_mapping = {
+            'bottle': ('B', 'Flammable Container', True),
+            'car': ('B', 'Vehicle/Fuel', True),
+            'truck': ('B', 'Vehicle/Fuel', True),
+            'motorcycle': ('B', 'Vehicle/Fuel', True),
+            'bus': ('B', 'Vehicle/Fuel', True),
+            'airplane': ('B', 'Aircraft/Fuel', True),
+            'laptop': ('C', 'Electronics', False),
+            'tv': ('C', 'Electronics', False),
+            'cell phone': ('C', 'Electronics', False),
+            'microwave': ('C', 'Appliance', False),
+            'toaster': ('C', 'Appliance', False),
+            'refrigerator': ('C', 'Appliance', False),
+            'oven': ('K', 'Cooking Equipment', True),
+            'bowl': ('K', 'Kitchen Item', False),
+            'cup': ('K', 'Kitchen Item', False),
+            'fork': ('K', 'Kitchen Item', False),
+            'knife': ('K', 'Kitchen Item', False),
+            'spoon': ('K', 'Kitchen Item', False),
+            'book': ('A', 'Paper/Books', False),
+            'couch': ('A', 'Furniture', False),
+            'bed': ('A', 'Furniture', False),
+            'chair': ('A', 'Furniture', False),
+            'dining table': ('A', 'Furniture', False),
+            'potted plant': ('A', 'Organic Material', False),
+            'backpack': ('A', 'Fabric/Textile', False),
+            'handbag': ('A', 'Fabric/Textile', False),
+            'suitcase': ('A', 'Fabric/Textile', False),
+            'teddy bear': ('A', 'Fabric/Textile', False),
+        }
+        
+        for mat in detected_materials:
+            if mat in material_mapping:
+                cls, desc, risk = material_mapping[mat]
+                if f"{mat.title()} ({desc})" not in burning_materials:
+                    burning_materials.append(f"{mat.title()} ({desc})")
+                if fire_class is None or (cls == 'B' and fire_class != 'B'):
+                    fire_class = cls
+                    fire_class_desc = desc
+                if risk:
+                    explosion_risk = True
+        
+        if has_cylinder:
+            fire_class = 'B'
+            fire_class_desc = 'Gas Cylinder'
+            explosion_risk = True
+            if "Gas Cylinder (EXTREME DANGER)" not in burning_materials:
+                burning_materials.append("Gas Cylinder (EXTREME DANGER)")
+            
+        if has_fire and fire_class is None:
+            fire_class = 'A'
+            fire_class_desc = 'General Fire'
+            
+        processed_labels = set()
+        
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        def should_create_alert(alert_type_name):
+            recent_alerts = Alert.objects.filter(alert_type=alert_type_name).order_by('-timestamp')
+            if recent_alerts.exists():
+                latest = recent_alerts.first()
+                if timezone.now() - latest.timestamp < timedelta(seconds=20):
+                    return False
+            return True
+
+        if has_fire and explosion_risk:
+            if has_cylinder:
+                alert_label = "EXPLOSION RISK - Gas/Flammable near Fire"
+            else:
+                alert_label = f"CLASS {fire_class} - {fire_class_desc}"
+            
+            if should_create_alert(alert_label):
+                FireDetector.save_alert(frame, alert_label, 0.99, severity='critical')
+                alerts_created += 1
+            processed_labels.add('explosion_risk')
                 
-                # Check for recent identical alerts
-                alert_type_name = label if label.lower() != 'default' else 'Fire/Burning Detected'
+        elif has_fire and fire_class:
+            class_label = f"CLASS {fire_class} - {fire_class_desc}"
+            sev = 'critical' if fire_class in ['B', 'C', 'K'] else 'high'
+            if should_create_alert(class_label):
+                FireDetector.save_alert(frame, class_label, 0.95, severity=sev)
+                alerts_created += 1
+            processed_labels.add('fire_class')
+            
+        if burning_materials and has_fire and len(burning_materials) > 0:
+            materials_alert = "Materials: " + ", ".join(burning_materials[:3])
+            if len(materials_alert) > 95:
+                materials_alert = materials_alert[:92] + "..."
+            if should_create_alert(materials_alert):
+                FireDetector.save_alert(frame, materials_alert, 0.80, severity='medium')
+                alerts_created += 1
+
+        allowed_labels = ['fire', 'smoke', 'cylinder', 'gas', 'burning', 'default', 'flames']
+        
+        for d in frame_detections:
+            if d.get('source') != 'fire_model': continue
                 
-                recent_alerts = Alert.objects.filter(alert_type=alert_type_name).order_by('-timestamp')
-                should_alert = True
-                if recent_alerts.exists():
-                    latest = recent_alerts.first()
-                    # Alert once every 20s
-                    if timezone.now() - latest.timestamp < timedelta(seconds=20):
-                        should_alert = False
-                
-                if should_alert:
-                    FireDetector.save_alert(frame, label, conf)
-                    alerts_created += 1
-                    
+            label = d['label']
+            conf = d['conf']
+            
+            if conf < 0.15: continue
+            if label.lower() not in allowed_labels: continue
+            
+            is_handled = 'fire_class' in processed_labels or 'explosion_risk' in processed_labels or 'class_b' in processed_labels
+            if ('fire' in label.lower() or label.lower() == 'default') and is_handled: continue
+            if ('cylinder' in label.lower() or 'gas' in label.lower()) and ('explosion_risk' in processed_labels or 'class_b' in processed_labels): continue
+            
+            display_label = label if label.lower() != 'default' else 'Fire/Burning Detected'
+            if should_create_alert(display_label):
+                FireDetector.save_alert(frame, label, conf)
+                alerts_created += 1
+
         return detections_for_ui, alerts_created
 
     @staticmethod

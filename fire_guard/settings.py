@@ -87,9 +87,9 @@ WSGI_APPLICATION = "fire_guard.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'fire_guard',
+        'NAME': 'fire_guard_db',
         'USER': 'root',
-        'PASSWORD': 'mysql',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '3306',
     }
@@ -149,6 +149,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+
+
 # REPLACE WITH YOUR ACTUAL EMAIL AND APP PASSWORD
 EMAIL_HOST_USER = 'mail id' 
 EMAIL_HOST_PASSWORD = 'pass key' 
