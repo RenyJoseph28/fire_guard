@@ -395,6 +395,12 @@ class FireDetector:
             # Determine logic
             processed_labels = set()
             
+            extra_info = {
+                'fire_class': fire_class if fire_class else 'Unknown',
+                'burning_materials': burning_materials,
+                'explosion_risk': explosion_risk
+            }
+            
             # Log detected materials (if any)
             if burning_materials and has_fire:
                 materials_str = ", ".join(burning_materials[:3])  # Top 3 materials
@@ -406,7 +412,7 @@ class FireDetector:
                     alert_label = "EXPLOSION RISK - Gas/Flammable near Fire"
                 else:
                     alert_label = f"CLASS {fire_class} - {fire_class_desc}"
-                FireDetector.save_alert(frame, alert_label, 0.99, severity='critical')
+                FireDetector.save_alert(frame, alert_label, 0.99, severity='critical', extra_info=extra_info)
                 alerts_created += 1
                 processed_labels.add('explosion_risk')
                 print(f"DEBUG: ⚠️ EXPLOSION RISK DETECTED!")
@@ -415,7 +421,7 @@ class FireDetector:
                 class_label = f"CLASS {fire_class} - {fire_class_desc}"
                 # Class B, C, K are more dangerous
                 sev = 'critical' if fire_class in ['B', 'C', 'K'] else 'high'
-                FireDetector.save_alert(frame, class_label, 0.95, severity=sev)
+                FireDetector.save_alert(frame, class_label, 0.95, severity=sev, extra_info=extra_info)
                 alerts_created += 1
                 processed_labels.add('fire_class')
             
@@ -425,7 +431,7 @@ class FireDetector:
                 materials_alert = "Materials: " + ", ".join(burning_materials[:3])
                 if len(materials_alert) > 95:  # Truncate if too long
                     materials_alert = materials_alert[:92] + "..."
-                FireDetector.save_alert(frame, materials_alert, 0.80, severity='medium')
+                FireDetector.save_alert(frame, materials_alert, 0.80, severity='medium', extra_info=extra_info)
                 alerts_created += 1
             
             # Log other (relevant) detections
@@ -447,7 +453,7 @@ class FireDetector:
                 if ('cylinder' in label.lower() or 'gas' in label.lower()) and 'class_b' in processed_labels: continue
                 
                 print(f"DEBUG: Detected {label} with confidence {conf}")
-                FireDetector.save_alert(frame, label, conf)
+                FireDetector.save_alert(frame, label, conf, extra_info=extra_info)
                 alerts_created += 1
         
         cap.release()
@@ -632,6 +638,12 @@ class FireDetector:
             
         processed_labels = set()
         
+        extra_info = {
+            'fire_class': fire_class if fire_class else 'Unknown',
+            'burning_materials': burning_materials,
+            'explosion_risk': explosion_risk
+        }
+        
         from django.utils import timezone
         from datetime import timedelta
         
@@ -650,7 +662,7 @@ class FireDetector:
                 alert_label = f"CLASS {fire_class} - {fire_class_desc}"
             
             if should_create_alert(alert_label):
-                FireDetector.save_alert(frame, alert_label, 0.99, severity='critical')
+                FireDetector.save_alert(frame, alert_label, 0.99, severity='critical', extra_info=extra_info)
                 alerts_created += 1
             processed_labels.add('explosion_risk')
                 
@@ -658,7 +670,7 @@ class FireDetector:
             class_label = f"CLASS {fire_class} - {fire_class_desc}"
             sev = 'critical' if fire_class in ['B', 'C', 'K'] else 'high'
             if should_create_alert(class_label):
-                FireDetector.save_alert(frame, class_label, 0.95, severity=sev)
+                FireDetector.save_alert(frame, class_label, 0.95, severity=sev, extra_info=extra_info)
                 alerts_created += 1
             processed_labels.add('fire_class')
             
@@ -667,7 +679,7 @@ class FireDetector:
             if len(materials_alert) > 95:
                 materials_alert = materials_alert[:92] + "..."
             if should_create_alert(materials_alert):
-                FireDetector.save_alert(frame, materials_alert, 0.80, severity='medium')
+                FireDetector.save_alert(frame, materials_alert, 0.80, severity='medium', extra_info=extra_info)
                 alerts_created += 1
 
         allowed_labels = ['fire', 'smoke', 'cylinder', 'gas', 'burning', 'default', 'flames']
@@ -687,13 +699,16 @@ class FireDetector:
             
             display_label = label if label.lower() != 'default' else 'Fire/Burning Detected'
             if should_create_alert(display_label):
-                FireDetector.save_alert(frame, label, conf)
+                FireDetector.save_alert(frame, display_label, conf, extra_info=extra_info)
                 alerts_created += 1
 
         return detections_for_ui, alerts_created
 
     @staticmethod
-    def save_alert(frame, label, confidence, severity=None):
+    def save_alert(frame, label, confidence, severity=None, extra_info=None):
+        if extra_info is None:
+            extra_info = {}
+            
         # Convert frame to image for storage
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(frame_rgb)
@@ -738,21 +753,42 @@ class FireDetector:
         
         # Send Email Notification
         try:
-            FireDetector.send_alert_email(alert)
+            FireDetector.send_alert_email(alert, extra_info)
         except Exception as e:
             print(f"Error sending email alert: {e}")
         
         # Send Push Notification
         try:
             from .views import send_push_notification
-            title = f"🔥 {display_label}"
-            body = f"Severity: {severity.upper()} | Location: Camera 1"
+            
+            f_class = extra_info.get('fire_class', 'Unknown')
+            materials = extra_info.get('burning_materials', [])
+            materials_str = ", ".join(materials) if materials else "None identified"
+            
+            exting = "Dry Chemical"
+            if f_class == 'A': exting = "Water/Foam"
+            elif f_class == 'B': exting = "Foam/CO2"
+            elif f_class == 'C': exting = "CO2/DryPowder"
+            elif f_class == 'K': exting = "Wet Chemical"
+            
+            title = f"🔥 ALERT: {display_label}"
+            time_now = alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            body = (f"Fire Class: {f_class}\n"
+                    f"Nearby Materials / Risk: {materials_str}\n"
+                    f"Recommended Extinguisher: {exting}\n"
+                    f"Severity Level: {severity.upper()}\n"
+                    f"Location: {alert.location}\n"
+                    f"Time: {time_now}")
+
             send_push_notification(title, body, {'alert_id': alert.id})
         except Exception as e:
             print(f"Error sending push notification: {e}")
 
     @staticmethod
-    def send_alert_email(alert):
+    def send_alert_email(alert, extra_info=None):
+        if extra_info is None:
+            extra_info = {}
+            
         from django.core.mail import EmailMultiAlternatives
         from django.conf import settings
         from .models import AlertRecipient
@@ -776,8 +812,17 @@ class FireDetector:
         elif alert.severity == 'low': icon = "☁️"
         
         subject = f"{icon} FIRE GUARD ALERT: {alert.alert_type} Detected [{alert.severity.upper()}]"
-        
         # Plain Text Body (Fallback)
+        f_class = extra_info.get('fire_class', 'Unknown')
+        materials = extra_info.get('burning_materials', [])
+        materials_str = ", ".join(materials) if materials else "None identified"
+        
+        exting = "General Safety Protocols"
+        if f_class == 'A': exting = "Water, Foam, ABC Powder"
+        elif f_class == 'B': exting = "Foam, CO2, Dry Powder"
+        elif f_class == 'C': exting = "CO2, Dry Powder (DO NOT USE WATER)"
+        elif f_class == 'K': exting = "Wet Chemical"
+        
         text_body = f"""
         FIRE GUARD SECURITY ALERT
         =========================
@@ -785,8 +830,11 @@ class FireDetector:
         A potential hazard has been detected by the AI Surveillance System.
         
         DETAILS:
-        - Hazard Type: {alert.alert_type}
+        - Alert: {alert.alert_type}
         - Severity: {alert.severity.upper()}
+        - Fire Class: {f_class}
+        - Nearby Materials/Risk: {materials_str}
+        - Recommended Extinguisher: {exting}
         - Location: {alert.location}
         - Time: {alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}
         
@@ -801,19 +849,6 @@ class FireDetector:
         color = "#e11d48" # Red
         if alert.severity == 'medium': color = "#f97316" # Orange
         if alert.severity == 'low': color = "#6b7280" # Grey
-        
-        # Determine functionality based on class
-        extinguisher = "General Safety Protocols"
-        
-        at_upper = alert.alert_type.upper()
-        if "CLASS A" in at_upper:
-            extinguisher = "Water, Foam, ABC Powder"
-        elif "CLASS B" in at_upper or "LIQUID" in at_upper or "GAS" in at_upper or "CYLINDER" in at_upper:
-            extinguisher = "Foam, CO2, Dry Powder"
-        elif "CLASS C" in at_upper or "ELECTRICAL" in at_upper:
-            extinguisher = "CO2, Dry Powder (DO NOT USE WATER)"
-        elif "CLASS K" in at_upper or "COOKING" in at_upper:
-            extinguisher = "Wet Chemical"
             
         html_body = f"""
         <!DOCTYPE html>
@@ -827,7 +862,7 @@ class FireDetector:
                 .alert-box {{ background-color: #fff1f2; border-left: 4px solid {color}; padding: 15px; margin: 20px 0; }}
                 .details-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
                 .details-table td {{ padding: 8px 0; border-bottom: 1px solid #f3f4f6; }}
-                .label {{ font-weight: bold; color: #555; width: 30%; }}
+                .label {{ font-weight: bold; color: #555; width: 35%; }}
                 .footer {{ background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; }}
                 .button {{ display: inline-block; padding: 10px 20px; background-color: {color}; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }}
             </style>
@@ -848,12 +883,20 @@ class FireDetector:
                                 <td><strong>{alert.alert_type}</strong></td>
                             </tr>
                             <tr>
-                                <td class="label">Severity Level:</td>
-                                <td style="color: {color}; font-weight: bold;">{alert.severity.upper()}</td>
+                                <td class="label">Fire Class:</td>
+                                <td style="color: {color}; font-weight: bold;">{f_class}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Nearby Materials / Risk:</td>
+                                <td style="color: #ef4444; font-weight: bold;">{materials_str}</td>
                             </tr>
                             <tr>
                                 <td class="label">Recommended Extinguisher:</td>
-                                <td style="color: #d97706; font-weight: bold;">{extinguisher}</td>
+                                <td style="color: #d97706; font-weight: bold;">{exting}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Severity Level:</td>
+                                <td style="color: {color}; font-weight: bold;">{alert.severity.upper()}</td>
                             </tr>
                             <tr>
                                 <td class="label">Location:</td>
