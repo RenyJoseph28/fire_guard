@@ -4,8 +4,7 @@
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// Firebase config (must match your app config)
-firebase.initializeApp({
+const firebaseConfig = {
     apiKey: "AIzaSyAyyoXMZ8UDUd5SMk5g6cGloASpBvLDFBs",
     authDomain: "fireguard-fbe22.firebaseapp.com",
     projectId: "fireguard-fbe22",
@@ -13,7 +12,8 @@ firebase.initializeApp({
     messagingSenderId: "191728247078",
     appId: "1:191728247078:web:59c9758802de2db9cee1e7",
     measurementId: "G-046VF9C0D8"
-});
+};
+firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 

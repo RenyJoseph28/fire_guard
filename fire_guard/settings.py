@@ -87,9 +87,9 @@ WSGI_APPLICATION = "fire_guard.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'fire_guard_db',
+        'NAME': 'fire_guard',
         'USER': 'root',
-        'PASSWORD': 'admin',
+        'PASSWORD': 'mysql',
         'HOST': 'localhost',
         'PORT': '3306',
     }
@@ -152,10 +152,10 @@ EMAIL_USE_TLS = True
 
 
 # REPLACE WITH YOUR ACTUAL EMAIL AND APP PASSWORD
-EMAIL_HOST_USER = 'mail id' 
-EMAIL_HOST_PASSWORD = 'pass key' 
+EMAIL_HOST_USER = 'varadapp31@gmail.com' 
+EMAIL_HOST_PASSWORD = 'viln ocrc ipbx hyqa' 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Firebase Cloud Messaging (FCM) Configuration
 # Using Firebase Admin SDK with Service Account
-FIREBASE_CREDENTIALS_FILE = BASE_DIR / 'fireguard-fbe22-efa549248415.json'
+FIREBASE_CREDENTIALS_FILE = BASE_DIR / 'fireguard-fbe22-firebase-adminsdk-fbsvc-48dd9f72be.json'

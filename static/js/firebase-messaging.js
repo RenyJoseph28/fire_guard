@@ -2,13 +2,13 @@
 // Project: fireguard-fbe22
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAyyoXMZ8UDUd5SMk5g6cGloASpBvLDFBs",
-    authDomain: "fireguard-fbe22.firebaseapp.com",
-    projectId: "fireguard-fbe22",
-    storageBucket: "fireguard-fbe22.firebasestorage.app",
-    messagingSenderId: "191728247078",
-    appId: "1:191728247078:web:59c9758802de2db9cee1e7",
-    measurementId: "G-046VF9C0D8"
+  apiKey: "AIzaSyAyyoXMZ8UDUd5SMk5g6cGloASpBvLDFBs",
+  authDomain: "fireguard-fbe22.firebaseapp.com",
+  projectId: "fireguard-fbe22",
+  storageBucket: "fireguard-fbe22.firebasestorage.app",
+  messagingSenderId: "191728247078",
+  appId: "1:191728247078:web:59c9758802de2db9cee1e7",
+  measurementId: "G-046VF9C0D8"
 };
 
 // Initialize Firebase
@@ -18,9 +18,17 @@ const messaging = firebase.messaging();
 // Request Permission & Get Token
 async function initializePushNotifications(swRegistration) {
     try {
-        const permission = await Notification.requestPermission();
+        let permission = Notification.permission;
+        
+        if (permission === 'default') {
+            // Mobile Chrome requires a button click to ask for permissions!
+            showSyncBanner(swRegistration);
+            return null;
+        }
+        
         if (permission !== 'granted') {
             console.log('Notification permission denied');
+            alert('Notifications blocked! Tap the 🔒 icon in the URL bar, go to Permissions, allow Notifications, then refresh the page.');
             return null;
         }
 
@@ -43,6 +51,34 @@ async function initializePushNotifications(swRegistration) {
         console.error('Error getting FCM token:', error);
         return null;
     }
+}
+
+function showSyncBanner(swRegistration) {
+    if (document.getElementById('mobile-push-prompt')) return;
+    const div = document.createElement('div');
+    div.id = 'mobile-push-prompt';
+    div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);z-index:999999;display:flex;align-items:center;justify-content:center;';
+    div.innerHTML = '<div style="background:#222;padding:30px;border-radius:15px;text-align:center;width:80%;max-width:300px;border:2px solid #ff4500;"><div style="font-size:40px;margin-bottom:10px;">🔔</div><h3 style="color:white;margin-bottom:10px;font-family:sans-serif;">Enable Alerts</h3><p style="color:#aaa;margin-bottom:20px;font-size:14px;font-family:sans-serif;">We need your permission to send fire alerts to your phone.</p><button id="btn-allow-push" style="background:#ff4500;color:white;border:none;padding:12px 20px;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;font-size:16px;">ALLOW</button></div>';
+    document.body.appendChild(div);
+    
+    document.getElementById('btn-allow-push').addEventListener('click', async () => {
+        try {
+            // EXTREMELY IMPORTANT: Mobile Chrome allows requestPermission ONLY when reacting to this click
+            const newPerm = await Notification.requestPermission();
+            div.remove();
+            if (newPerm === 'granted') {
+                const token = await messaging.getToken({
+                    vapidKey: 'BJ-Ev7bjBG-hqorEWWbV93Os5elWhdY182uac5S9Pua3bpd_2y1gUfbNVwVN6xrG7U7NDAD1KdzKFrYdI9noF6c',
+                    serviceWorkerRegistration: swRegistration
+                });
+                const deviceName = getDeviceName();
+                await saveTokenToServer(token, deviceName);
+                alert("Push Notifications enabled successfully on this phone!");
+            } else {
+                alert("Permission denied. Tap the lock icon in the URL bar to enable.");
+            }
+        } catch(e) { console.error(e); div.remove(); }
+    });
 }
 
 // Get device name from browser info
