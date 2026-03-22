@@ -751,38 +751,43 @@ class FireDetector:
             snapshot=img_content
         )
         
-        # Send Email Notification
-        try:
-            FireDetector.send_alert_email(alert, extra_info)
-        except Exception as e:
-            print(f"Error sending email alert: {e}")
+        # Send Email and Push Notification Asynchronously (FAST)
+        import threading
         
-        # Send Push Notification
-        try:
-            from .views import send_push_notification
-            
-            f_class = extra_info.get('fire_class', 'Unknown')
-            materials = extra_info.get('burning_materials', [])
-            materials_str = ", ".join(materials) if materials else "None identified"
-            
-            exting = "Dry Chemical"
-            if f_class == 'A': exting = "Water/Foam"
-            elif f_class == 'B': exting = "Foam/CO2"
-            elif f_class == 'C': exting = "CO2/DryPowder"
-            elif f_class == 'K': exting = "Wet Chemical"
-            
-            title = f"🔥 ALERT: {display_label}"
-            time_now = alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-            body = (f"Fire Class: {f_class}\n"
-                    f"Nearby Materials / Risk: {materials_str}\n"
-                    f"Recommended Extinguisher: {exting}\n"
-                    f"Severity Level: {severity.upper()}\n"
-                    f"Location: {alert.location}\n"
-                    f"Time: {time_now}")
+        def send_notifications_bg(alert_instance, info, label_text):
+            try:
+                FireDetector.send_alert_email(alert_instance, info)
+            except Exception as e:
+                print(f"Error sending email alert: {e}")
+                
+            try:
+                from .views import send_push_notification
+                f_class = info.get('fire_class', 'Unknown')
+                materials = info.get('burning_materials', [])
+                materials_str = ", ".join(materials) if materials else "None identified"
+                
+                exting = "Dry Chemical"
+                if f_class == 'A': exting = "Water/Foam"
+                elif f_class == 'B': exting = "Foam/CO2"
+                elif f_class == 'C': exting = "CO2/DryPowder"
+                elif f_class == 'K': exting = "Wet Chemical"
+                
+                title = f"🔥 ALERT: {label_text}"
+                time_now = alert_instance.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                body = (f"Fire Class: {f_class}\n"
+                        f"Nearby Materials / Risk: {materials_str}\n"
+                        f"Recommended Extinguisher: {exting}\n"
+                        f"Severity Level: {severity.upper()}\n"
+                        f"Location: {alert_instance.location}\n"
+                        f"Time: {time_now}")
 
-            send_push_notification(title, body, {'alert_id': alert.id})
-        except Exception as e:
-            print(f"Error sending push notification: {e}")
+                send_push_notification(title, body, {'alert_id': alert_instance.id})
+            except Exception as e:
+                print(f"Error sending push notification: {e}")
+                
+        # Launch background thread so UI doesn't freeze waiting for SMTP servers
+        bg_thread = threading.Thread(target=send_notifications_bg, args=(alert, extra_info, display_label))
+        bg_thread.start()
 
     @staticmethod
     def send_alert_email(alert, extra_info=None):

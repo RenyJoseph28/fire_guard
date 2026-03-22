@@ -155,7 +155,7 @@
             <main class="flex-1 overflow-y-auto p-6">
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <!-- <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-gray-500 text-sm font-medium">Total Users</h3>
                             <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -168,7 +168,7 @@
                         </div>
                         <span class="text-2xl font-bold text-gray-800">{{ total_users }}</span>
                         <span class="text-xs text-green-500 font-medium ml-2">Registered Users</span>
-                    </div>
+                    </div> -->
 
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                         <div class="flex items-center justify-between mb-4">
@@ -223,7 +223,7 @@
                                 <tr class="text-gray-500 text-sm border-b border-gray-100">
                                     <th class="pb-3 font-medium">Type</th>
                                     <th class="pb-3 font-medium">Severity</th>
-                                    <th class="pb-3 font-medium">Confidence</th>
+                                    <!-- <th class="pb-3 font-medium">Confidence</th> -->
                                     <th class="pb-3 font-medium">Time</th>
                                     <th class="pb-3 font-medium">Snapshot</th>
                                 </tr>
@@ -249,7 +249,7 @@
                                             class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 font-semibold">Low</span>
                                         {% endif %}
                                     </td>
-                                    <td class="py-3 text-sm text-gray-600">{{ alert.confidence|floatformat:2 }}</td>
+                                    <!-- <td class="py-3 text-sm text-gray-600">{{ alert.confidence|floatformat:2 }}</td> -->
                                     <td class="py-3 text-sm text-gray-500">{{ alert.timestamp|timesince }} ago</td>
                                     <td class="py-3">
                                         {% if alert.snapshot %}

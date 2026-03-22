@@ -5,86 +5,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload for Analysis - Fire Guard</title>
+    <title>Video Analysis - Fire Guard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gray-50 flex items-center justify-center min-h-screen font-sans">
-    <div class="w-full max-w-lg bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+<body class="bg-gray-50 flex items-center justify-center min-h-screen font-sans p-4">
+    <div id="upload-container" class="w-full max-w-lg bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
         <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upload Surveillance Video</h2>
 
-        <form method="post" enctype="multipart/form-data" class="space-y-6">
+        <form id="upload-form" class="space-y-6">
             {% csrf_token %}
-
-            <div
-                class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                <input type="file" name="video_file" accept="video/*"
-                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required>
+            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                <input type="file" id="video-input" accept="video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required>
                 <div class="flex flex-col items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-3" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p class="text-gray-600 font-medium">Click to upload or drag video here</p>
-                    <p class="text-sm text-gray-400 mt-1">MP4, AVI, MOV supported</p>
+                    <p class="text-sm text-gray-400 mt-1">MP4, WebM Supported</p>
                 </div>
             </div>
 
-            <!-- File Name Display -->
-            <div id="file-name-display"
-                class="hidden items-center justify-center gap-2 bg-blue-50 text-blue-700 p-3 rounded-lg border border-blue-100 font-medium text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div id="file-name-display" class="hidden items-center justify-center gap-2 bg-blue-50 text-blue-700 p-3 rounded-lg border border-blue-100 font-medium text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span id="file-name-text"></span>
             </div>
 
-            <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
                 Analyze Video
             </button>
         </form>
 
         <div class="mt-6 text-center">
-            <a href="{% url 'adminpanel:admin_dashboard' %}" class="text-gray-500 hover:text-gray-700 text-sm">Cancel
-                and back to
-                Dashboard</a>
+            <a href="{% url 'adminpanel:admin_dashboard' %}" class="text-gray-500 hover:text-gray-700 text-sm">Cancel and back to Dashboard</a>
         </div>
     </div>
-    <!-- Preloader Overlay -->
-    <div id="preloader"
-        class="hidden fixed inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-50 transition-all">
-        <div class="relative">
-            <div class="animate-spin rounded-full h-20 w-20 border-t-4 border-b-4 border-blue-600"></div>
-            <div class="absolute inset-0 flex items-center justify-center">
-                <svg class="h-8 w-8 text-blue-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+
+    <!-- Video Analysis Player Container -->
+    <div id="analysis-container" class="hidden w-full max-w-3xl bg-gray-900 rounded-2xl shadow-2xl border-4 border-gray-800 overflow-hidden flex-col p-4 items-center">
+        <div class="w-full flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">Analyzing Video...</h2>
+            <div id="status-badge" class="bg-blue-100 text-blue-800 px-4 py-1 rounded-full text-sm font-bold flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                Processing
             </div>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800 mt-6 animate-pulse">Analyzing Video...</h3>
-        <p class="text-gray-500 mt-2">Processing fire and smoke detection algorithms</p>
-        <p class="text-xs text-gray-400 mt-1">Please do not close this window</p>
+
+        <!-- Video + Overlay wrapper -->
+        <div class="relative inline-block bg-black shadow-lg" style="font-size: 0; line-height: 0; max-height: 400px;">
+            <video id="preview-video" style="max-height: 400px; max-width: 100%; display: block;" muted playsinline></video>
+            <canvas id="overlay-canvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10" style="display: block;"></canvas>
+
+            <!-- Spinner overlay shown while backend processes -->
+            <div id="processing-spinner" class="hidden absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
+                <div class="flex flex-col items-center gap-2">
+                    <svg class="animate-spin h-10 w-10 text-orange-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    <span class="text-orange-300 text-sm font-semibold">Analyzing frame...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="w-full mt-4 bg-gray-700 rounded-full h-2">
+            <div id="progress-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="w-full flex justify-between text-xs text-gray-400 mt-1 px-1">
+            <span id="time-current">0s</span>
+            <span id="frame-counter">Frame 0</span>
+            <span id="time-total">0s</span>
+        </div>
+
+        <!-- Hidden capture canvas (small resolution for fast transfer) -->
+        <canvas id="capture-canvas" class="hidden"></canvas>
+
+        <p class="text-gray-400 text-xs mt-4 w-full text-center">
+            Video pauses briefly on each frame while AI analyzes it — bounding boxes are always in sync.
+        </p>
+
+        <div class="mt-3 w-full text-center">
+            <a href="{% url 'adminpanel:admin_dashboard' %}" class="text-gray-500 hover:text-gray-300 text-sm">← Back to Dashboard</a>
+        </div>
     </div>
 
     <script>
-        const fileInput = document.querySelector('input[name="video_file"]');
+        const fileInput     = document.getElementById('video-input');
         const fileNameDisplay = document.getElementById('file-name-display');
-        const fileNameText = document.getElementById('file-name-text');
-        const form = document.querySelector('form');
-        const preloader = document.getElementById('preloader');
+        const fileNameText  = document.getElementById('file-name-text');
+        const form          = document.getElementById('upload-form');
+        const uploadContainer   = document.getElementById('upload-container');
+        const analysisContainer = document.getElementById('analysis-container');
+        const video         = document.getElementById('preview-video');
+        const overlay       = document.getElementById('overlay-canvas');
+        const overlayCtx    = overlay.getContext('2d');
+        const captureCanvas = document.getElementById('capture-canvas');
+        const captureCtx    = captureCanvas.getContext('2d', { willReadFrequently: true });
+        const statusBadge   = document.getElementById('status-badge');
+        const spinner       = document.getElementById('processing-spinner');
+        const progressBar   = document.getElementById('progress-bar');
+        const timeCurrent   = document.getElementById('time-current');
+        const timeTotal     = document.getElementById('time-total');
+        const frameCounter  = document.getElementById('frame-counter');
 
-        // Show file name when selected
+        // ── Config ──────────────────────────────────────────────────────────
+        // How many seconds to step forward between analyzed frames.
+        // 0.5 = one frame every 500ms of video time (good for 15–25s clips).
+        // Increase to 1.0 if backend is still slow.
+        const STEP_SECONDS  = 0.5;
+
+        // Max width sent to backend (smaller = faster, boxes still scale back up)
+        const CAPTURE_WIDTH = 320;
+
+        // JPEG quality 0–1 (0.35 looks fine for fire detection; saves ~70% bandwidth)
+        const JPEG_QUALITY  = 0.35;
+        // ────────────────────────────────────────────────────────────────────
+
+        let scaleRatioX = 1.0;
+        let scaleRatioY = 1.0;
+        let frameIndex  = 0;
+        let running     = false;   // true while the frame-step loop is active
+
+        // ── File selection display ──────────────────────────────────────────
         fileInput.addEventListener('change', function () {
             if (this.files && this.files.length > 0) {
-                fileNameText.textContent = "Selected File: " + this.files[0].name;
+                fileNameText.textContent = 'Selected: ' + this.files[0].name;
                 fileNameDisplay.classList.remove('hidden');
                 fileNameDisplay.classList.add('flex');
             } else {
@@ -92,17 +142,168 @@
             }
         });
 
-        // Show preloader on submit
+        // ── Form submit → switch to player ────────────────────────────────
         form.addEventListener('submit', function (e) {
-            // Check if file is selected
-            if (fileInput.files.length === 0) {
-                e.preventDefault();
-                alert("Please select a video file first.");
-                return;
-            }
-            preloader.classList.remove('hidden');
+            e.preventDefault();
+            if (fileInput.files.length === 0) return alert('Please select a video file first.');
+
+            const file = fileInput.files[0];
+            video.src = URL.createObjectURL(file);
+
+            uploadContainer.classList.add('hidden');
+            analysisContainer.classList.remove('hidden');
+            analysisContainer.classList.add('flex');
         });
+
+        // ── Once metadata loads, set up canvases and kick off loop ─────────
+        video.addEventListener('loadedmetadata', () => {
+            // Overlay always matches native video resolution → crisp boxes
+            overlay.width  = video.videoWidth;
+            overlay.height = video.videoHeight;
+
+            // Capture canvas is tiny → fast JPEG payload
+            const ratio = Math.min(1, CAPTURE_WIDTH / video.videoWidth);
+            captureCanvas.width  = Math.round(video.videoWidth  * ratio);
+            captureCanvas.height = Math.round(video.videoHeight * ratio);
+
+            // Scale factors to map small-canvas box coords → full overlay
+            scaleRatioX = overlay.width  / captureCanvas.width;
+            scaleRatioY = overlay.height / captureCanvas.height;
+
+            timeTotal.textContent = Math.round(video.duration) + 's';
+
+            // Seek to frame 0 first, then start the loop
+            video.currentTime = 0;
+        });
+
+        // ── After every seek completes, process that frame ─────────────────
+        video.addEventListener('seeked', async () => {
+            if (!running) return;
+
+            const t = video.currentTime;
+
+            // Update progress UI
+            const pct = video.duration > 0 ? (t / video.duration) * 100 : 0;
+            progressBar.style.width = pct + '%';
+            timeCurrent.textContent = t.toFixed(1) + 's';
+            frameCounter.textContent = 'Frame ' + frameIndex;
+
+            // Show spinner while processing
+            spinner.classList.remove('hidden');
+            setStatusProcessing();
+
+            try {
+                // Grab the current frame into the small capture canvas
+                captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+                const base64Data = captureCanvas.toDataURL('image/jpeg', JPEG_QUALITY);
+
+                const response = await fetch("{% url 'adminpanel:process_live_frame' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ image: base64Data })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        drawDetections(data.detections);
+                    }
+                }
+            } catch (err) {
+                console.error('Frame processing error:', err);
+            } finally {
+                spinner.classList.add('hidden');
+            }
+
+            // Advance to the next frame position
+            frameIndex++;
+            const nextTime = t + STEP_SECONDS;
+
+            if (nextTime < video.duration) {
+                // Seek triggers 'seeked' → which calls this handler again (loop)
+                video.currentTime = nextTime;
+            } else {
+                // End of video
+                running = false;
+                progressBar.style.width = '100%';
+                timeCurrent.textContent = Math.round(video.duration) + 's';
+                statusBadge.innerHTML = '✅ Complete!';
+                statusBadge.className = 'bg-green-100 text-green-800 px-4 py-1 rounded-full text-sm font-bold flex items-center gap-2';
+                analysisContainer.classList.remove('shadow-[0_0_30px_rgba(239,68,68,0.5)]');
+            }
+        });
+
+        // ── Video load complete → start loop ───────────────────────────────
+        video.addEventListener('loadeddata', () => {
+            running = true;
+            frameIndex = 0;
+            // Trigger the first seeked event
+            video.currentTime = 0;
+        });
+
+        // ── Draw bounding boxes on the full-res overlay ────────────────────
+        function drawDetections(detections) {
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            let fireDetected = false;
+
+            detections.forEach(det => {
+                const label = det.label.toLowerCase();
+                if (!(label.includes('fire') || label.includes('smoke') || label === 'default')) return;
+
+                // Scale box coords from capture canvas → overlay canvas
+                let [x1, y1, x2, y2] = det.box;
+                x1 *= scaleRatioX; x2 *= scaleRatioX;
+                y1 *= scaleRatioY; y2 *= scaleRatioY;
+
+                const isFire = label.includes('fire') || label === 'default';
+                if (isFire) fireDetected = true;
+
+                const color        = isFire ? '#ef4444' : '#9ca3af';
+                const displayLabel = isFire ? 'Fire'    : 'Smoke';
+
+                // Box
+                overlayCtx.strokeStyle = color;
+                overlayCtx.lineWidth   = 4;
+                overlayCtx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+                // Corner glow for fire
+                if (isFire) {
+                    overlayCtx.shadowColor = '#ef4444';
+                    overlayCtx.shadowBlur  = 12;
+                    overlayCtx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                    overlayCtx.shadowBlur  = 0;
+                }
+
+                // Label background
+                overlayCtx.fillStyle = color;
+                overlayCtx.font      = 'bold 22px Inter, sans-serif';
+                const text      = `${displayLabel} ${(det.conf * 100).toFixed(0)}%`;
+                const textWidth = overlayCtx.measureText(text).width;
+                overlayCtx.fillRect(x1, y1 - 34, textWidth + 16, 32);
+
+                // Label text
+                overlayCtx.fillStyle = '#ffffff';
+                overlayCtx.shadowBlur = 0;
+                overlayCtx.fillText(text, x1 + 8, y1 - 9);
+            });
+
+            if (fireDetected) {
+                analysisContainer.classList.add('shadow-[0_0_30px_rgba(239,68,68,0.5)]');
+                statusBadge.innerHTML = '🔥 FIRE DETECTED';
+                statusBadge.className = 'bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-bold shadow animate-pulse transition-colors';
+            } else {
+                analysisContainer.classList.remove('shadow-[0_0_30px_rgba(239,68,68,0.5)]');
+                setStatusProcessing();
+            }
+        }
+
+        function setStatusProcessing() {
+            statusBadge.innerHTML = '<div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div> Processing';
+            statusBadge.className = 'bg-blue-100 text-blue-800 px-4 py-1 rounded-full text-sm font-bold flex items-center gap-2 transition-colors';
+        }
     </script>
 </body>
-
 </html>
