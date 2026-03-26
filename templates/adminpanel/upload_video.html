@@ -248,6 +248,7 @@
         function drawDetections(detections) {
             overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
             let fireDetected = false;
+            let smokeDetected = false;
 
             detections.forEach(det => {
                 const label = det.label.toLowerCase();
@@ -259,10 +260,12 @@
                 y1 *= scaleRatioY; y2 *= scaleRatioY;
 
                 const isFire = label.includes('fire') || label === 'default';
+                const isSmoke = label.includes('smoke');
                 if (isFire) fireDetected = true;
+                if (isSmoke) smokeDetected = true;
 
-                const color        = isFire ? '#ef4444' : '#9ca3af';
-                const displayLabel = isFire ? 'Fire'    : 'Smoke';
+                const color        = isFire ? '#ef4444' : (isSmoke ? '#fb923c' : '#9ca3af');
+                const displayLabel = isFire ? 'Fire'    : (isSmoke ? 'Smoke' : label);
 
                 // Box
                 overlayCtx.strokeStyle = color;
@@ -282,18 +285,27 @@
                 overlayCtx.font      = 'bold 22px Inter, sans-serif';
                 const text      = `${displayLabel} ${(det.conf * 100).toFixed(0)}%`;
                 const textWidth = overlayCtx.measureText(text).width;
-                overlayCtx.fillRect(x1, y1 - 34, textWidth + 16, 32);
+                
+                // Keep label inside bounds if y1 is too close to top
+                const ph = 32;
+                const py = y1 > ph + 5 ? y1 - ph - 2 : y1 + 5;
+                
+                overlayCtx.fillRect(x1, py, textWidth + 16, ph);
 
                 // Label text
                 overlayCtx.fillStyle = '#ffffff';
                 overlayCtx.shadowBlur = 0;
-                overlayCtx.fillText(text, x1 + 8, y1 - 9);
+                overlayCtx.fillText(text, x1 + 8, py + 23);
             });
 
             if (fireDetected) {
                 analysisContainer.classList.add('shadow-[0_0_30px_rgba(239,68,68,0.5)]');
                 statusBadge.innerHTML = '🔥 FIRE DETECTED';
                 statusBadge.className = 'bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-bold shadow animate-pulse transition-colors';
+            } else if (smokeDetected) {
+                analysisContainer.classList.remove('shadow-[0_0_30px_rgba(239,68,68,0.5)]');
+                statusBadge.innerHTML = '💨 SMOKE DETECTED';
+                statusBadge.className = 'bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-bold shadow animate-pulse transition-colors';
             } else {
                 analysisContainer.classList.remove('shadow-[0_0_30px_rgba(239,68,68,0.5)]');
                 setStatusProcessing();

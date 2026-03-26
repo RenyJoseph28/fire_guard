@@ -111,8 +111,21 @@ def is_valid_fire_smoke(frame, xyxy, label, conf, width, height, has_fire_in_fra
         texture_score = np.mean(std_dev)
         avg_val = np.mean(mean) # Brightness
         
-        # CRITICAL FIX: Dark smoke (like from house fires) should ALWAYS pass!
-        if avg_val < 90:
+        b_val, g_val, r_val = cv2.mean(roi)[:3]
+        saturation = max(b_val, g_val, r_val) - min(b_val, g_val, r_val)
+        
+        # Reject highly saturated "smoke" (e.g. fire glow, red gas cylinders, colorful objects)
+        if saturation > 40:
+            print(f"DEBUG: Rejected Smoke candidate '{label}' - Too saturated ({saturation:.0f})")
+            return False
+            
+        # Reject "smoke" that is completely flat/smooth (e.g. plain walls, clean floors)
+        if texture_score < 5:
+            print(f"DEBUG: Rejected Smoke candidate '{label}' - Too smooth ({texture_score:.1f})")
+            return False
+
+        # CRITICAL FIX: Dark smoke (like from house fires) should pass, but must have *some* texture
+        if avg_val < 90 and texture_score > 8:
             print(f"DEBUG: Dark smoke detected (brightness {avg_val:.0f}) - ALLOWING")
             return True
         
